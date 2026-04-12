@@ -414,6 +414,52 @@ export default function SubmitPage() {
   }, []);
 
   /* ---------------------------------------------------------------- */
+  /*  Drag-and-drop state                                              */
+  /* ---------------------------------------------------------------- */
+  const [dragType, setDragType] = useState<'step' | 'resource' | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const handleDragStart = useCallback((type: 'step' | 'resource', idx: number) => {
+    setDragType(type);
+    setDragIdx(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIdx(idx);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragType(null);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, []);
+
+  const handleDropStep = useCallback((targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) { handleDragEnd(); return; }
+    setSteps((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(dragIdx, 1);
+      next.splice(targetIdx, 0, removed);
+      return next;
+    });
+    handleDragEnd();
+  }, [dragIdx, handleDragEnd]);
+
+  const handleDropResource = useCallback((targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) { handleDragEnd(); return; }
+    setResources((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(dragIdx, 1);
+      next.splice(targetIdx, 0, removed);
+      return next;
+    });
+    handleDragEnd();
+  }, [dragIdx, handleDragEnd]);
+
+  /* ---------------------------------------------------------------- */
   /*  File handlers                                                    */
   /* ---------------------------------------------------------------- */
 
@@ -870,11 +916,28 @@ export default function SubmitPage() {
         {steps.map((s, idx) => (
           <div
             key={idx}
-            className="relative bg-white border border-gray2 rounded-xl p-5"
+            draggable
+            onDragStart={() => handleDragStart('step', idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragEnd={handleDragEnd}
+            onDrop={() => handleDropStep(idx)}
+            className={`relative bg-white border border-gray2 rounded-xl p-5 transition-all ${
+              dragType === 'step' && dragIdx === idx ? 'opacity-40 scale-[0.98]' : ''
+            } ${
+              dragType === 'step' && dragOverIdx === idx && dragIdx !== idx ? 'border-orange border-2 shadow-lg' : ''
+            }`}
           >
-            {/* Index badge */}
-            <div className="absolute -top-3 left-4 bg-orange text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-              Шаг {idx + 1}
+            {/* Index badge + drag handle */}
+            <div className="absolute -top-3 left-4 flex items-center gap-1.5">
+              <div className="bg-orange text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                Шаг {idx + 1}
+              </div>
+            </div>
+            <div
+              className="absolute top-3 left-3 cursor-grab active:cursor-grabbing text-muted/40 hover:text-orange transition-colors select-none"
+              title="Перетащи для перемещения"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
             </div>
 
             {/* Move & Remove buttons */}
@@ -1012,11 +1075,26 @@ export default function SubmitPage() {
         {resources.map((r, idx) => (
           <div
             key={idx}
-            className="relative bg-white border border-gray2 rounded-xl p-5"
+            draggable
+            onDragStart={() => handleDragStart('resource', idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragEnd={handleDragEnd}
+            onDrop={() => handleDropResource(idx)}
+            className={`relative bg-white border border-gray2 rounded-xl p-5 transition-all ${
+              dragType === 'resource' && dragIdx === idx ? 'opacity-40 scale-[0.98]' : ''
+            } ${
+              dragType === 'resource' && dragOverIdx === idx && dragIdx !== idx ? 'border-orange border-2 shadow-lg' : ''
+            }`}
           >
             {/* Index badge */}
             <div className="absolute -top-3 left-4 bg-orange text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
               Ресурс {idx + 1}
+            </div>
+            <div
+              className="absolute top-3 left-3 cursor-grab active:cursor-grabbing text-muted/40 hover:text-orange transition-colors select-none"
+              title="Перетащи для перемещения"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
             </div>
 
             {/* Move & Remove buttons */}
