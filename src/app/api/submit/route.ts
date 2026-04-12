@@ -72,46 +72,26 @@ export async function POST(request: NextRequest) {
     const ideaFilePath = ideaAttachment ? await uploadFile(participant.id, ideaAttachment, 'idea_attachment') : null
     const stepsFilePath = stepsAttachment ? await uploadFile(participant.id, stepsAttachment, 'steps_attachment') : null
 
-    // Create submission (build insert object dynamically to handle optional columns)
-    const submissionData: Record<string, unknown> = {
-      participant_id: participant.id,
-      case_title: caseTitle,
-      section_analytics: sectionAnalytics || null,
-      section_idea: sectionIdea || null,
-      section_steps: sectionSteps || null,
-      section_budget: sectionBudget || null,
-      pptx_file_path: pptxFilePath,
-      idea_attachment_path: ideaFilePath,
-      steps_attachment_path: stepsFilePath,
-      idea_file_description: ideaFileDescription || null,
-      steps_file_description: stepsFileDescription || null,
-      status: 'pending',
-    }
-
-    // Try inserting with pptx_comment first, fallback without it
-    let submission
-    let submissionError
-
-    const withComment = { ...submissionData, pptx_comment: pptxComment || null }
-    const result1 = await supabase
+    // Create submission
+    const { data: submission, error: submissionError } = await supabase
       .from('submissions')
-      .insert(withComment)
+      .insert({
+        participant_id: participant.id,
+        case_title: caseTitle,
+        section_analytics: sectionAnalytics || null,
+        section_idea: sectionIdea || null,
+        section_steps: sectionSteps || null,
+        section_budget: sectionBudget || null,
+        pptx_file_path: pptxFilePath,
+        idea_attachment_path: ideaFilePath,
+        steps_attachment_path: stepsFilePath,
+        idea_file_description: ideaFileDescription || null,
+        steps_file_description: stepsFileDescription || null,
+        pptx_comment: pptxComment || null,
+        status: 'pending',
+      })
       .select('id')
       .single()
-
-    if (result1.error?.message?.includes('pptx_comment')) {
-      // Column doesn't exist yet, insert without it
-      const result2 = await supabase
-        .from('submissions')
-        .insert(submissionData)
-        .select('id')
-        .single()
-      submission = result2.data
-      submissionError = result2.error
-    } else {
-      submission = result1.data
-      submissionError = result1.error
-    }
 
     if (submissionError || !submission) {
       console.error('Submission error:', submissionError)
