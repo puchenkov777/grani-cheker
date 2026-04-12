@@ -46,7 +46,14 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation'] as const
-const SECTION_HEADERS = ['Аналитика', 'Идея', 'Шаги', 'Бюджет', 'Покажи что получилось', 'Связанность']
+const SECTION_LABELS: Record<string, string> = {
+  analytics: 'Аналитика',
+  idea: 'Идея',
+  steps: 'Шаги',
+  budget: 'Бюджет',
+  presentation: 'Презентация',
+  cross_validation: 'Связанность',
+}
 
 function scoreColorClass(score: number | undefined): string {
   if (score === undefined || score === null) return 'text-muted'
@@ -145,7 +152,6 @@ export default function DashboardPage() {
         setMentorDisplayName(parsed.displayName || parsed.name)
         setAuthed(true)
       } else if (parsed.role === 'admin') {
-        // Admin should use /admin
         router.push('/admin')
       } else {
         router.push('/login')
@@ -162,7 +168,6 @@ export default function DashboardPage() {
         const res = await fetch('/api/results')
         if (!res.ok) throw new Error('Ошибка загрузки')
         const json = await res.json()
-        // Filter by mentor name (match mentor field from participants)
         const mentorMap: Record<string, string> = { victor: 'Виктор', vlad: 'Влад' }
         const displayMentor = mentorMap[mentorName] || mentorName
         const filtered = (json.data ?? []).filter((s: Submission) =>
@@ -178,7 +183,6 @@ export default function DashboardPage() {
     fetchData()
   }, [authed, mentorName])
 
-  // Download file from Supabase Storage
   const handleDownloadFile = useCallback(async (filePath: string, label: string) => {
     try {
       const { data, error } = await supabase.storage
@@ -200,7 +204,6 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Fetch detailed scores for a submission
   const openDetail = useCallback(async (sub: Submission) => {
     setSelectedId(sub.id)
     setSelectedDetail(sub)
@@ -220,12 +223,10 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Download docx for selected submission
   const handleDownloadDocx = useCallback(async () => {
     if (!selectedDetail) return
     const { exportToDocx } = await import('@/lib/export-docx')
 
-    // Parse JSON fields back into structured data
     let facts = [{ fact: '', conclusion: '', source: '' }]
     let generalConclusion = ''
     let ideaFields = { name: '', concept: '', audience: '', how_it_works: '', benefit: '' }
@@ -270,24 +271,21 @@ export default function DashboardPage() {
     })
   }, [selectedDetail])
 
-  // Render a case section with JSON parsing
   function renderCaseSection(title: string, raw: string | null) {
     if (!raw) return (
-      <div className="bg-gray rounded-xl p-4 border border-gray2">
+      <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
         <p className="text-xs font-bold text-muted mb-1">{title}</p>
         <p className="text-xs text-muted italic">Не заполнено</p>
       </div>
     )
 
-    // Try to parse as JSON and render nicely
     try {
       const parsed = JSON.parse(raw)
 
-      // Analytics: { facts: [...], general_conclusion }
       if (parsed.facts && Array.isArray(parsed.facts)) {
         const filledFacts = parsed.facts.filter((f: { fact: string }) => f.fact?.trim())
         return (
-          <div className="bg-gray rounded-xl p-4 border border-gray2">
+          <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
             <p className="text-xs font-bold text-dark mb-2">{title}</p>
             {filledFacts.map((f: { fact: string; conclusion: string; source: string }, i: number) => (
               <div key={i} className="mb-2 pl-3 border-l-2 border-orange/30">
@@ -306,10 +304,9 @@ export default function DashboardPage() {
         )
       }
 
-      // Idea: { name, concept, audience, how_it_works, benefit }
       if (parsed.name !== undefined && parsed.concept !== undefined) {
         return (
-          <div className="bg-gray rounded-xl p-4 border border-gray2">
+          <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
             <p className="text-xs font-bold text-dark mb-2">{title}</p>
             {parsed.name && <p className="text-xs mb-1"><span className="font-bold">Название:</span> {parsed.name}</p>}
             {parsed.concept && <p className="text-xs mb-1"><span className="font-bold">Концепция:</span> {parsed.concept}</p>}
@@ -320,11 +317,10 @@ export default function DashboardPage() {
         )
       }
 
-      // Steps: array of { step, timeframe, expected_result }
       if (Array.isArray(parsed) && parsed[0]?.step !== undefined) {
         const filledSteps = parsed.filter((s: { step: string }) => s.step?.trim())
         return (
-          <div className="bg-gray rounded-xl p-4 border border-gray2">
+          <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
             <p className="text-xs font-bold text-dark mb-2">{title}</p>
             {filledSteps.map((s: { step: string; timeframe: string; expected_result: string }, i: number) => (
               <div key={i} className="mb-2 pl-3 border-l-2 border-orange/30">
@@ -337,17 +333,16 @@ export default function DashboardPage() {
         )
       }
 
-      // Budget: array of { resource, cost, source }
       if (Array.isArray(parsed) && parsed[0]?.resource !== undefined) {
         const filledRes = parsed.filter((r: { resource: string }) => r.resource?.trim())
         return (
-          <div className="bg-gray rounded-xl p-4 border border-gray2">
+          <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
             <p className="text-xs font-bold text-dark mb-2">{title}</p>
             {filledRes.map((r: { resource: string; cost: string; source: string }, i: number) => (
-              <div key={i} className="mb-1 flex gap-3 text-xs">
+              <div key={i} className="mb-1.5 text-xs">
                 <span className="font-bold text-dark">{r.resource}</span>
-                <span className="text-muted">{r.cost}</span>
-                {r.source && <span className="text-muted truncate max-w-[200px]">{r.source}</span>}
+                <span className="text-muted ml-2">{r.cost}</span>
+                {r.source && <span className="text-muted ml-2 break-all">{r.source}</span>}
               </div>
             ))}
           </div>
@@ -357,9 +352,8 @@ export default function DashboardPage() {
       // Not JSON — render as plain text
     }
 
-    // Fallback: raw text
     return (
-      <div className="bg-gray rounded-xl p-4 border border-gray2">
+      <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
         <p className="text-xs font-bold text-dark mb-1">{title}</p>
         <p className="text-xs text-dark whitespace-pre-wrap leading-relaxed">{raw}</p>
       </div>
@@ -417,15 +411,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-10">
       {/* Header */}
-      <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
+      <div className="mb-6 sm:mb-8 flex items-end justify-between flex-wrap gap-3 sm:gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 bg-orange-pale border border-orange/30 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase text-orange mb-5">
+          <div className="inline-flex items-center gap-2 bg-orange-pale border border-orange/30 rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-[11px] font-bold tracking-widest uppercase text-orange mb-3 sm:mb-5">
             <span className="w-1.5 h-1.5 rounded-full bg-orange animate-pulse" />
             Дашборд ментора
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">
             Работы для <span className="text-orange">{mentorDisplayName}</span>
           </h1>
         </div>
@@ -438,28 +432,28 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-2xl border border-gray2 p-5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">Всего работ</p>
-          <p className="text-3xl font-black text-dark">{totalCount}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray2 p-3 sm:p-5">
+          <p className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1">Всего работ</p>
+          <p className="text-xl sm:text-3xl font-black text-dark">{totalCount}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray2 p-5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">Средний балл</p>
-          <p className="text-3xl font-black text-dark">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray2 p-3 sm:p-5">
+          <p className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1">Средний балл</p>
+          <p className="text-xl sm:text-3xl font-black text-dark">
             {avgScore}
-            <span className="text-lg font-bold text-muted">/200</span>
+            <span className="text-sm sm:text-lg font-bold text-muted">/200</span>
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray2 p-5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">Требуют проверки</p>
-          <p className="text-3xl font-black text-orange">{reviewCount}</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray2 p-3 sm:p-5">
+          <p className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1">Требуют проверки</p>
+          <p className="text-xl sm:text-3xl font-black text-orange">{reviewCount}</p>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 mb-6">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-0 sm:min-w-[200px] sm:max-w-sm">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"
             viewBox="0 0 24 24"
@@ -482,13 +476,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Status filter */}
-        <div className="flex items-center gap-1.5 bg-gray rounded-xl p-1 border border-gray2">
+        <div className="flex items-center gap-1 sm:gap-1.5 bg-gray rounded-xl p-1 border border-gray2 overflow-x-auto">
           {(['all', 'pending', 'checking', 'done', 'review', 'error'] as StatusFilter[]).map(
             (s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap ${
                   statusFilter === s
                     ? 'bg-orange text-white shadow-sm'
                     : 'text-muted hover:text-dark hover:bg-white'
@@ -500,78 +494,116 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Export CSV */}
-        <button
-          onClick={() => exportCSV(filtered)}
-          className="inline-flex items-center gap-2 border-2 border-dark text-dark px-4 py-2 rounded-xl text-xs font-bold hover:border-orange hover:text-orange hover:bg-orange-pale transition-all"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {/* Sort + Export */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleSort('total')}
+            className={`inline-flex items-center gap-1 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold border transition-all ${sortKey === 'total' ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange'}`}
           >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Экспорт CSV
-        </button>
+            Балл{sortArrow('total')}
+          </button>
+          <button
+            onClick={() => handleSort('date')}
+            className={`inline-flex items-center gap-1 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold border transition-all ${sortKey === 'date' ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange'}`}
+          >
+            Дата{sortArrow('date')}
+          </button>
+          <button
+            onClick={() => exportCSV(filtered)}
+            className="inline-flex items-center gap-1.5 border-2 border-dark text-dark px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold hover:border-orange hover:text-orange hover:bg-orange-pale transition-all"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span className="hidden sm:inline">Экспорт</span> CSV
+          </button>
+        </div>
       </div>
 
       {/* Loading / Error */}
       {loading && (
         <div className="flex items-center justify-center py-20">
           <svg className="animate-spin h-8 w-8 text-orange" viewBox="0 0 24 24" fill="none">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl px-6 py-4 text-sm text-red-600 font-medium">
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 sm:px-6 py-4 text-sm text-red-600 font-medium">
           {error}
         </div>
       )}
 
-      {/* Table */}
+      {/* Mobile cards */}
       {!loading && !error && (
-        <div className="bg-white rounded-2xl border border-gray2 overflow-hidden shadow-sm">
+        <div className="block lg:hidden space-y-3">
+          {filtered.length === 0 && (
+            <p className="text-center py-16 text-muted text-sm font-medium">Нет работ</p>
+          )}
+          {filtered.map((sub) => (
+            <div
+              key={sub.id}
+              onClick={() => openDetail(sub)}
+              className={`bg-white rounded-xl border border-gray2 p-4 cursor-pointer hover:bg-orange-pale/40 transition-colors ${
+                sub.needs_review ? 'border-l-4 border-l-orange' : ''
+              } ${selectedId === sub.id ? 'bg-orange-pale/30' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-dark truncate">{sub.participant_name ?? '—'}</p>
+                  <p className="text-xs text-muted truncate">{sub.case_title}</p>
+                </div>
+                <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${STATUS_COLORS[sub.status] ?? 'bg-gray text-muted border-gray2'}`}>
+                  {STATUS_LABELS[sub.status] ?? sub.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-bold text-orange">{sub.mentor ?? '—'}</span>
+                <span className="text-[10px] text-muted">{sub.created_at ? formatDate(sub.created_at) : '—'}</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {SECTIONS.map((sec) => {
+                  const score = sub.scores[sec]
+                  return (
+                    <div key={sec} className="flex items-center gap-1">
+                      <span className="text-[9px] text-muted">{SECTION_LABELS[sec]?.slice(0, 3)}</span>
+                      {score !== undefined && score !== null ? (
+                        <span className={`inline-flex items-center justify-center w-7 h-5 rounded text-[10px] font-bold ${scoreColorClass(score)}`}>
+                          {score}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-muted">—</span>
+                      )}
+                    </div>
+                  )
+                })}
+                <div className="flex items-center gap-1 ml-auto">
+                  <span className="text-[10px] font-bold text-muted">Итого:</span>
+                  <span className="text-sm font-black text-dark">{sub.total ?? '—'}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Desktop table */}
+      {!loading && !error && (
+        <div className="hidden lg:block bg-white rounded-2xl border border-gray2 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray border-b border-gray2">
                 <tr>
-                  <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
-                    Имя
-                  </th>
-                  <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
-                    Ментор
-                  </th>
-                  <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
-                    Кейс
-                  </th>
-                  {SECTION_HEADERS.map((h) => (
-                    <th
-                      key={h}
-                      className="text-center px-2 py-3 font-extrabold text-dark text-xs uppercase tracking-wider"
-                    >
-                      {h}
+                  <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">Имя</th>
+                  <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">Ментор</th>
+                  <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">Кейс</th>
+                  {SECTIONS.map((sec) => (
+                    <th key={sec} className="text-center px-2 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
+                      {SECTION_LABELS[sec]}
                     </th>
                   ))}
                   <th
@@ -580,9 +612,7 @@ export default function DashboardPage() {
                   >
                     Итого{sortArrow('total')}
                   </th>
-                  <th className="text-center px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
-                    Статус
-                  </th>
+                  <th className="text-center px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">Статус</th>
                   <th
                     className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider cursor-pointer select-none hover:text-orange transition-colors"
                     onClick={() => handleSort('date')}
@@ -594,12 +624,7 @@ export default function DashboardPage() {
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={12}
-                      className="text-center py-16 text-muted text-sm font-medium"
-                    >
-                      Нет работ
-                    </td>
+                    <td colSpan={12} className="text-center py-16 text-muted text-sm font-medium">Нет работ</td>
                   </tr>
                 )}
                 {filtered.map((sub) => (
@@ -610,25 +635,15 @@ export default function DashboardPage() {
                       sub.needs_review ? 'border-l-4 border-l-orange' : ''
                     } ${selectedId === sub.id ? 'bg-orange-pale/30' : ''}`}
                   >
-                    <td className="px-4 py-3 font-semibold text-dark whitespace-nowrap max-w-[180px] truncate">
-                      {sub.participant_name ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-bold text-orange whitespace-nowrap">
-                      {sub.mentor ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-dark whitespace-nowrap max-w-[160px] truncate">
-                      {sub.case_title}
-                    </td>
+                    <td className="px-4 py-3 font-semibold text-dark whitespace-nowrap max-w-[180px] truncate">{sub.participant_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-orange whitespace-nowrap">{sub.mentor ?? '—'}</td>
+                    <td className="px-4 py-3 text-dark whitespace-nowrap max-w-[160px] truncate">{sub.case_title}</td>
                     {SECTIONS.map((sec) => {
                       const score = sub.scores[sec]
                       return (
                         <td key={sec} className="text-center px-2 py-3">
                           {score !== undefined && score !== null ? (
-                            <span
-                              className={`inline-flex items-center justify-center w-9 h-7 rounded-md text-xs font-bold ${scoreColorClass(
-                                score
-                              )}`}
-                            >
+                            <span className={`inline-flex items-center justify-center w-9 h-7 rounded-md text-xs font-bold ${scoreColorClass(score)}`}>
                               {score}
                             </span>
                           ) : (
@@ -645,17 +660,11 @@ export default function DashboardPage() {
                       )}
                     </td>
                     <td className="text-center px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border ${
-                          STATUS_COLORS[sub.status] ?? 'bg-gray text-muted border-gray2'
-                        }`}
-                      >
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border ${STATUS_COLORS[sub.status] ?? 'bg-gray text-muted border-gray2'}`}>
                         {STATUS_LABELS[sub.status] ?? sub.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted whitespace-nowrap">
-                      {sub.created_at ? formatDate(sub.created_at) : '—'}
-                    </td>
+                    <td className="px-4 py-3 text-xs text-muted whitespace-nowrap">{sub.created_at ? formatDate(sub.created_at) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -666,37 +675,34 @@ export default function DashboardPage() {
 
       {/* Detail panel */}
       {selectedId && selectedDetail && (
-        <div className="mt-8 bg-white rounded-2xl border border-gray2 shadow-sm p-6 md:p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-black">
+        <div className="mt-6 sm:mt-8 bg-white rounded-xl sm:rounded-2xl border border-gray2 shadow-sm p-4 sm:p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-black truncate">
                 {selectedDetail.participant_name ?? '—'}
               </h3>
               <p className="text-xs text-muted mt-0.5">
                 Ментор: <span className="font-bold text-orange">{selectedDetail.mentor ?? '—'}</span> &middot; Кейс: {selectedDetail.case_title} &middot; Итого: <span className="font-bold text-dark">{selectedDetail.total ?? '—'}/200</span>
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Download DOCX */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <button
                 onClick={handleDownloadDocx}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale transition-all"
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold border border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale transition-all"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Скачать .docx
+                .docx
               </button>
-              {/* Toggle case view */}
               <button
                 onClick={() => setShowCase(!showCase)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-all ${showCase ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale'}`}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold border transition-all ${showCase ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale'}`}
               >
                 {showCase ? 'Скрыть кейс' : 'Показать кейс'}
               </button>
-              {/* Close */}
               <button
                 onClick={() => { setSelectedId(null); setSelectedDetail(null); setDetailScores([]); setShowCase(false); }}
                 className="text-muted hover:text-dark text-xl font-bold transition-colors"
@@ -708,46 +714,45 @@ export default function DashboardPage() {
 
           {/* Submitted case content */}
           {showCase && (
-            <div className="mb-6 space-y-4">
+            <div className="mb-6 space-y-3 sm:space-y-4">
               <div className="text-[11px] font-bold tracking-[0.15em] uppercase text-orange flex items-center gap-2">
                 <span className="w-4 h-0.5 bg-orange" />
                 Отправленный кейс
               </div>
-              {renderCaseSection('🔍 Аналитика', selectedDetail.section_analytics)}
-              {renderCaseSection('💡 Идея', selectedDetail.section_idea)}
-              {renderCaseSection('📋 Шаги', selectedDetail.section_steps)}
-              {renderCaseSection('💰 Бюджет', selectedDetail.section_budget)}
+              {renderCaseSection('Аналитика', selectedDetail.section_analytics)}
+              {renderCaseSection('Идея', selectedDetail.section_idea)}
+              {renderCaseSection('Шаги', selectedDetail.section_steps)}
+              {renderCaseSection('Бюджет', selectedDetail.section_budget)}
 
-              {/* Attachment files */}
               {(selectedDetail.pptx_file_path || selectedDetail.idea_attachment_path || selectedDetail.steps_attachment_path) && (
-                <div className="bg-gray rounded-xl p-4 border border-gray2">
-                  <p className="text-xs font-bold text-dark mb-3">📎 Прикреплённые файлы</p>
+                <div className="bg-gray rounded-xl p-3 sm:p-4 border border-gray2">
+                  <p className="text-xs font-bold text-dark mb-3">Прикреплённые файлы</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedDetail.pptx_file_path && (
                       <button
                         onClick={() => handleDownloadFile(selectedDetail.pptx_file_path!, `${selectedDetail.participant_name || 'участник'}_презентация`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] sm:text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Презентация (.pptx)
+                        Презентация
                       </button>
                     )}
                     {selectedDetail.idea_attachment_path && (
                       <button
-                        onClick={() => handleDownloadFile(selectedDetail.idea_attachment_path!, `${selectedDetail.participant_name || 'участник'}_идея_приложение`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
+                        onClick={() => handleDownloadFile(selectedDetail.idea_attachment_path!, `${selectedDetail.participant_name || 'участник'}_идея`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] sm:text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Доп. файл (Идея)
+                        Файл (Идея)
                       </button>
                     )}
                     {selectedDetail.steps_attachment_path && (
                       <button
-                        onClick={() => handleDownloadFile(selectedDetail.steps_attachment_path!, `${selectedDetail.participant_name || 'участник'}_шаги_приложение`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
+                        onClick={() => handleDownloadFile(selectedDetail.steps_attachment_path!, `${selectedDetail.participant_name || 'участник'}_шаги`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] sm:text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Доп. файл (Шаги)
+                        Файл (Шаги)
                       </button>
                     )}
                   </div>
@@ -767,22 +772,22 @@ export default function DashboardPage() {
           ) : detailScores.length === 0 ? (
             <p className="text-sm text-muted py-8 text-center">Результаты проверки ещё не готовы</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {detailScores.map((s) => {
                 const sectionNames: Record<string, string> = {
-                  analytics: '🔍 Аналитика',
-                  idea: '💡 Идея',
-                  steps: '📋 Шаги',
-                  budget: '💰 Бюджет',
-                  presentation: '📊 Покажи что получилось',
-                  cross_validation: '🔗 Связанность',
+                  analytics: 'Аналитика',
+                  idea: 'Идея',
+                  steps: 'Шаги',
+                  budget: 'Бюджет',
+                  presentation: 'Покажи что получилось',
+                  cross_validation: 'Связанность',
                 }
                 const barColor = s.score >= 30 ? 'bg-emerald-500' : s.score >= 20 ? 'bg-yellow-400' : s.score >= 10 ? 'bg-orange' : 'bg-red-500'
                 return (
-                  <div key={s.section} className="bg-gray rounded-xl p-5 border border-gray2">
+                  <div key={s.section} className="bg-gray rounded-xl p-4 sm:p-5 border border-gray2">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-extrabold">{sectionNames[s.section] ?? s.section}</span>
-                      <span className="text-lg font-black">{s.score}<span className="text-sm font-bold text-muted">/40</span></span>
+                      <span className="text-xs sm:text-sm font-extrabold">{sectionNames[s.section] ?? s.section}</span>
+                      <span className="text-base sm:text-lg font-black">{s.score}<span className="text-xs sm:text-sm font-bold text-muted">/40</span></span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-gray2 overflow-hidden mb-3">
                       <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max((s.score / 40) * 100, 2)}%` }} />
@@ -793,14 +798,14 @@ export default function DashboardPage() {
                     {(s.strengths as string[])?.length > 0 && (
                       <div className="mb-2">
                         {(s.strengths as string[]).map((str, i) => (
-                          <p key={i} className="text-xs text-emerald-600 flex items-start gap-1.5"><span className="mt-0.5">✓</span>{str}</p>
+                          <p key={i} className="text-xs text-emerald-600 flex items-start gap-1.5"><span className="mt-0.5">+</span>{str}</p>
                         ))}
                       </div>
                     )}
                     {(s.weaknesses as string[])?.length > 0 && (
                       <div>
                         {(s.weaknesses as string[]).map((w, i) => (
-                          <p key={i} className="text-xs text-red-500 flex items-start gap-1.5"><span className="mt-0.5">✗</span>{w}</p>
+                          <p key={i} className="text-xs text-red-500 flex items-start gap-1.5"><span className="mt-0.5">-</span>{w}</p>
                         ))}
                       </div>
                     )}

@@ -200,58 +200,56 @@ export default function AdminPage() {
   const sortArrow = (key: SortKey) => sortKey !== key ? '' : sortAsc ? ' ↑' : ' ↓'
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10">
-      <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-10">
+      <div className="mb-6 sm:mb-8 flex items-end justify-between flex-wrap gap-3 sm:gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase text-red-600 mb-5">
+          <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-[11px] font-bold tracking-widest uppercase text-red-600 mb-3 sm:mb-5">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             Панель администратора
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">
             Все <span className="text-orange">работы</span>
           </h1>
         </div>
         <button onClick={() => { localStorage.removeItem('mentor_auth'); router.push('/login') }} className="text-xs font-bold text-muted hover:text-orange transition-colors">Выйти</button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-2xl border border-gray2 p-5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">Всего работ</p>
-          <p className="text-3xl font-black text-dark">{totalCount}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray2 p-3 sm:p-5">
+          <p className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1">Всего работ</p>
+          <p className="text-xl sm:text-3xl font-black text-dark">{totalCount}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray2 p-5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">Средний балл</p>
-          <p className="text-3xl font-black text-dark">{avgScore}<span className="text-lg font-bold text-muted">/200</span></p>
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray2 p-3 sm:p-5">
+          <p className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1">Средний балл</p>
+          <p className="text-xl sm:text-3xl font-black text-dark">{avgScore}<span className="text-sm sm:text-lg font-bold text-muted">/200</span></p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray2 p-5">
-          <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">Требуют проверки</p>
-          <p className="text-3xl font-black text-orange">{reviewCount}</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-gray2 p-3 sm:p-5">
+          <p className="text-[10px] sm:text-xs font-bold text-muted uppercase tracking-wider mb-1">Требуют проверки</p>
+          <p className="text-xl sm:text-3xl font-black text-orange">{reviewCount}</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 mb-6">
+        <div className="relative flex-1 min-w-0 sm:min-w-[200px] sm:max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" placeholder="Поиск по имени или кейсу…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray2 bg-white text-sm font-medium text-dark placeholder:text-muted/60 focus:outline-none focus:border-orange focus:ring-1 focus:ring-orange/30 transition-colors" />
         </div>
 
-        {/* Mentor filter */}
-        <div className="flex items-center gap-1.5 bg-gray rounded-xl p-1 border border-gray2">
-          <button onClick={() => setMentorFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mentorFilter === 'all' ? 'bg-orange text-white shadow-sm' : 'text-muted hover:text-dark hover:bg-white'}`}>Все менторы</button>
+        <div className="flex items-center gap-1 sm:gap-1.5 bg-gray rounded-xl p-1 border border-gray2 overflow-x-auto">
+          <button onClick={() => setMentorFilter('all')} className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap ${mentorFilter === 'all' ? 'bg-orange text-white shadow-sm' : 'text-muted hover:text-dark hover:bg-white'}`}>Все менторы</button>
           {mentors.map(m => (
-            <button key={m} onClick={() => setMentorFilter(m)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mentorFilter === m ? 'bg-orange text-white shadow-sm' : 'text-muted hover:text-dark hover:bg-white'}`}>{m}</button>
+            <button key={m} onClick={() => setMentorFilter(m)} className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap ${mentorFilter === m ? 'bg-orange text-white shadow-sm' : 'text-muted hover:text-dark hover:bg-white'}`}>{m}</button>
           ))}
         </div>
 
-        {/* Status filter */}
-        <div className="flex items-center gap-1.5 bg-gray rounded-xl p-1 border border-gray2">
+        <div className="flex items-center gap-1 sm:gap-1.5 bg-gray rounded-xl p-1 border border-gray2 overflow-x-auto">
           {(['all','pending','checking','done','review','error'] as StatusFilter[]).map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${statusFilter === s ? 'bg-orange text-white shadow-sm' : 'text-muted hover:text-dark hover:bg-white'}`}>{s === 'all' ? 'Все' : STATUS_LABELS[s]}</button>
+            <button key={s} onClick={() => setStatusFilter(s)} className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap ${statusFilter === s ? 'bg-orange text-white shadow-sm' : 'text-muted hover:text-dark hover:bg-white'}`}>{s === 'all' ? 'Все' : STATUS_LABELS[s]}</button>
           ))}
         </div>
 
-        <button onClick={() => exportCSV(filtered)} className="inline-flex items-center gap-2 border-2 border-dark text-dark px-4 py-2 rounded-xl text-xs font-bold hover:border-orange hover:text-orange hover:bg-orange-pale transition-all">
+        <button onClick={() => exportCSV(filtered)} className="inline-flex items-center gap-1.5 border-2 border-dark text-dark px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold hover:border-orange hover:text-orange hover:bg-orange-pale transition-all">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Экспорт CSV
         </button>
@@ -299,18 +297,18 @@ export default function AdminPage() {
       )}
 
       {selectedId && selectedDetail && (
-        <div className="mt-8 bg-white rounded-2xl border border-gray2 shadow-sm p-6 md:p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-black">{selectedDetail.participant_name ?? '—'}</h3>
+        <div className="mt-6 sm:mt-8 bg-white rounded-xl sm:rounded-2xl border border-gray2 shadow-sm p-4 sm:p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-black truncate">{selectedDetail.participant_name ?? '—'}</h3>
               <p className="text-xs text-muted mt-0.5">Ментор: <span className="font-bold text-orange">{selectedDetail.mentor ?? '—'}</span> &middot; Кейс: {selectedDetail.case_title} &middot; Итого: <span className="font-bold text-dark">{selectedDetail.total ?? '—'}/200</span></p>
             </div>
-            <div className="flex items-center gap-3">
-              <button onClick={handleDownloadDocx} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale transition-all">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <button onClick={handleDownloadDocx} className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold border border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale transition-all">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Скачать .docx
+                .docx
               </button>
-              <button onClick={() => setShowCase(!showCase)} className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-all ${showCase ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale'}`}>{showCase ? 'Скрыть кейс' : 'Показать кейс'}</button>
+              <button onClick={() => setShowCase(!showCase)} className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold border transition-all ${showCase ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale'}`}>{showCase ? 'Скрыть кейс' : 'Показать кейс'}</button>
               <button onClick={() => { setSelectedId(null); setSelectedDetail(null); setDetailScores([]); setShowCase(false) }} className="text-muted hover:text-dark text-xl font-bold transition-colors">&times;</button>
             </div>
           </div>

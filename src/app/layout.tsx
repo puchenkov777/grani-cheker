@@ -23,28 +23,28 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans bg-white text-dark">
         {/* Header */}
         <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-orange/15">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-3">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+            <a href="/" className="flex items-center gap-2 sm:gap-3">
               <img
                 src="https://cdn.phototourl.com/free/2026-04-08-4279d01f-744c-4cba-97a9-06b8783ef05f.png"
                 alt="Грани"
-                className="h-10 w-auto"
+                className="h-8 sm:h-10 w-auto"
               />
               <div>
-                <div className="text-sm font-extrabold tracking-wide uppercase">Грани Чекер</div>
-                <div className="text-[10px] text-muted tracking-wider">Проверка кейсов</div>
+                <div className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">Грани Чекер</div>
+                <div className="text-[9px] sm:text-[10px] text-muted tracking-wider">Проверка кейсов</div>
               </div>
             </a>
-            <nav className="flex items-center gap-6">
-              <a href="/submit" className="text-xs font-semibold tracking-wide hover:text-orange transition-colors">
+            <nav className="flex items-center gap-3 sm:gap-6">
+              <a href="/submit" className="hidden sm:block text-xs font-semibold tracking-wide hover:text-orange transition-colors">
                 Сдать работу
               </a>
-              <a href="/login" className="text-xs font-semibold tracking-wide hover:text-orange transition-colors">
+              <a href="/login" className="hidden sm:block text-xs font-semibold tracking-wide hover:text-orange transition-colors">
                 Для менторов
               </a>
               <a
                 href="/submit"
-                className="bg-orange text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-orange-light transition-colors"
+                className="bg-orange text-white px-4 sm:px-5 py-2 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-orange-light transition-colors"
               >
                 Заполнить кейс
               </a>
@@ -56,16 +56,16 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
 
         {/* Footer */}
-        <footer className="bg-dark text-white/40 py-8 px-6">
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs">
+        <footer className="bg-dark text-white/40 py-6 sm:py-8 px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <p className="text-[10px] sm:text-xs text-center sm:text-left">
               &copy; 2026 АНО ДО &laquo;Платформа Грани&raquo; &middot; Все права защищены
             </p>
             <div className="flex gap-4">
-              <a href="https://t.me/platformgran" target="_blank" className="text-xs hover:text-orange transition-colors">
+              <a href="https://t.me/platformgran" target="_blank" className="text-[10px] sm:text-xs hover:text-orange transition-colors">
                 Telegram
               </a>
-              <a href="mailto:info@anogran.ru" className="text-xs hover:text-orange transition-colors">
+              <a href="mailto:info@anogran.ru" className="text-[10px] sm:text-xs hover:text-orange transition-colors">
                 info@anogran.ru
               </a>
             </div>

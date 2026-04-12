@@ -1074,7 +1074,7 @@ export default function SubmitPage() {
           <textarea
             value={pptxComment}
             onChange={(e) => setPptxComment(e.target.value.slice(0, 700))}
-            placeholder="Опиши кратко что в презентации: какие разделы кейса отражены, есть ли графики, таблицы, схемы..."
+            placeholder="Что нам нужно еще знать о проекте?"
             rows={4}
             className={textareaClass}
           />
