@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
           .download(submission.idea_attachment_path)
         if (fileData) {
           const buf = await fileData.arrayBuffer()
-          ideaAttachmentText = await extractTextFromFile(buf, submission.idea_attachment_path)
+          ideaAttachmentText = await extractTextFromFile(buf, submission.idea_attachment_path, openai)
         }
       } catch (e) {
         console.error('Failed to extract idea attachment text:', e)
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
           .download(submission.steps_attachment_path)
         if (fileData) {
           const buf = await fileData.arrayBuffer()
-          stepsAttachmentText = await extractTextFromFile(buf, submission.steps_attachment_path)
+          stepsAttachmentText = await extractTextFromFile(buf, submission.steps_attachment_path, openai)
         }
       } catch (e) {
         console.error('Failed to extract steps attachment text:', e)
