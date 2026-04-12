@@ -333,7 +333,7 @@ export default function AccountPage() {
             {submissions.map((sub) => (
               <Link
                 key={sub.id}
-                href={`/results/${sub.id}`}
+                href={`/submit?edit=${sub.id}`}
                 className="block bg-white border border-gray2 rounded-xl p-4 hover:bg-orange-pale/30 hover:border-orange/20 transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -342,22 +342,12 @@ export default function AccountPage() {
                     <p className="text-xs text-muted mt-0.5">{formatDate(sub.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {sub.total_scores && (
-                      <span className="text-sm font-black text-dark">
-                        {sub.total_scores.total}
-                        <span className="text-xs font-bold text-muted">/200</span>
-                      </span>
-                    )}
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${STATUS_COLORS[sub.status] ?? "bg-gray text-muted border-gray2"}`}>
                       {STATUS_LABELS[sub.status] ?? sub.status}
                     </span>
+                    <span className="text-orange font-bold text-xs">Редактировать →</span>
                   </div>
                 </div>
-                {sub.total_scores?.grade && (
-                  <p className="text-xs mt-2">
-                    Оценка: <span className="font-bold text-orange">{sub.total_scores.grade}</span>
-                  </p>
-                )}
               </Link>
             ))}
           </div>

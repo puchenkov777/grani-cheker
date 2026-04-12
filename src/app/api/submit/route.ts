@@ -133,3 +133,87 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// PUT — update existing submission and re-check
+export async function PUT(request: NextRequest) {
+  fileCounter = 0
+  try {
+    const formData = await request.formData()
+
+    const submissionId = formData.get('submission_id') as string
+    const userIdRaw = formData.get('user_id') as string
+    const caseTitle = formData.get('case_title') as string
+    const sectionAnalytics = formData.get('section_analytics') as string
+    const sectionIdea = formData.get('section_idea') as string
+    const sectionSteps = formData.get('section_steps') as string
+    const sectionBudget = formData.get('section_budget') as string
+    const pptxFile = formData.get('pptx_file') as File | null
+    const ideaAttachment = formData.get('idea_attachment') as File | null
+    const stepsAttachment = formData.get('steps_attachment') as File | null
+    const pptxComment = formData.get('pptx_comment') as string | null
+    const caseIdRaw = formData.get('case_id') as string | null
+
+    if (!submissionId || !userIdRaw) {
+      return NextResponse.json({ error: 'submission_id и user_id обязательны' }, { status: 400 })
+    }
+
+    // Verify ownership
+    const { data: existing } = await supabase
+      .from('submissions')
+      .select('id, participant_id')
+      .eq('id', submissionId)
+      .eq('user_id', userIdRaw)
+      .single()
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Работа не найдена' }, { status: 404 })
+    }
+
+    // Upload new files (only if provided)
+    const pptxFilePath = pptxFile && pptxFile.size > 0 ? await uploadFile(existing.participant_id, pptxFile, 'presentation') : undefined
+    const ideaFilePath = ideaAttachment && ideaAttachment.size > 0 ? await uploadFile(existing.participant_id, ideaAttachment, 'idea_attachment') : undefined
+    const stepsFilePath = stepsAttachment && stepsAttachment.size > 0 ? await uploadFile(existing.participant_id, stepsAttachment, 'steps_attachment') : undefined
+
+    // Build update object (only include file paths if new files were uploaded)
+    const updateData: Record<string, unknown> = {
+      case_title: caseTitle || undefined,
+      section_analytics: sectionAnalytics || null,
+      section_idea: sectionIdea || null,
+      section_steps: sectionSteps || null,
+      section_budget: sectionBudget || null,
+      pptx_comment: pptxComment || null,
+      case_id: caseIdRaw || null,
+      status: 'pending',
+    }
+    if (pptxFilePath) updateData.pptx_file_path = pptxFilePath
+    if (ideaFilePath) updateData.idea_attachment_path = ideaFilePath
+    if (stepsFilePath) updateData.steps_attachment_path = stepsFilePath
+
+    const { error: updateError } = await supabase
+      .from('submissions')
+      .update(updateData)
+      .eq('id', submissionId)
+
+    if (updateError) {
+      return NextResponse.json({ error: 'Ошибка обновления: ' + updateError.message }, { status: 500 })
+    }
+
+    // Delete old scores and total_scores
+    await supabase.from('scores').delete().eq('submission_id', submissionId)
+    await supabase.from('total_scores').delete().eq('submission_id', submissionId)
+
+    // Trigger re-check
+    const baseUrl = request.nextUrl.origin
+    fetch(`${baseUrl}/api/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submission_id: submissionId }),
+    }).catch(console.error)
+
+    return NextResponse.json({ success: true, submission_id: submissionId })
+  } catch (error) {
+    console.error('Update error:', error)
+    const message = error instanceof Error ? error.message : 'Внутренняя ошибка сервера'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -199,8 +199,19 @@ function FileUploadZone({
 /*  MAIN PAGE COMPONENT                                                */
 /* ================================================================== */
 
-export default function SubmitPage() {
+export default function SubmitPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-32"><svg className="animate-spin h-8 w-8 text-orange" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>}>
+      <SubmitPage />
+    </Suspense>
+  );
+}
+
+function SubmitPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editSubmissionId = searchParams.get('edit');
+  const [isEditMode, setIsEditMode] = useState(false);
 
   /* ---------- Participant info ---------- */
   const [name, setName] = useState("");
@@ -280,6 +291,59 @@ export default function SubmitPage() {
       }
     } catch { /* ignore */ }
   }, []);
+
+  // Load existing submission for editing
+  useEffect(() => {
+    if (!editSubmissionId || !userId) return;
+
+    async function loadSubmission() {
+      try {
+        const res = await fetch(`/api/submission?id=${editSubmissionId}&user_id=${userId}`);
+        if (!res.ok) return;
+        const { submission } = await res.json();
+        if (!submission) return;
+
+        setIsEditMode(true);
+        setCaseTitle(submission.case_title || '');
+        if (submission.case_id) setSelectedCaseId(submission.case_id);
+        if (submission.pptx_comment) setPptxComment(submission.pptx_comment);
+
+        // Parse JSON sections
+        try {
+          if (submission.section_analytics) {
+            const a = JSON.parse(submission.section_analytics);
+            if (a.facts?.length) setFacts(a.facts);
+            if (a.general_conclusion) setGeneralConclusion(a.general_conclusion);
+          }
+        } catch { /* raw text */ }
+
+        try {
+          if (submission.section_idea) {
+            const idea = JSON.parse(submission.section_idea);
+            setIdeaFields(idea);
+          }
+        } catch { /* raw text */ }
+
+        try {
+          if (submission.section_steps) {
+            const s = JSON.parse(submission.section_steps);
+            if (Array.isArray(s) && s.length) setSteps(s);
+          }
+        } catch { /* raw text */ }
+
+        try {
+          if (submission.section_budget) {
+            const b = JSON.parse(submission.section_budget);
+            if (Array.isArray(b) && b.length) setResources(b);
+          }
+        } catch { /* raw text */ }
+      } catch {
+        // ignore
+      }
+    }
+
+    loadSubmission();
+  }, [editSubmissionId, userId]);
 
   // Load draft — from cloud first (if logged in), fallback to localStorage
   useEffect(() => {
@@ -740,10 +804,20 @@ export default function SubmitPage() {
       if (stepsFile) formData.append("steps_attachment", stepsFile);
       if (stepsFileDesc.trim()) formData.append("steps_file_description", stepsFileDesc.trim());
 
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        body: formData,
-      });
+      let res: Response;
+
+      if (isEditMode && editSubmissionId) {
+        formData.append("submission_id", editSubmissionId);
+        res = await fetch("/api/submit", {
+          method: "PUT",
+          body: formData,
+        });
+      } else {
+        res = await fetch("/api/submit", {
+          method: "POST",
+          body: formData,
+        });
+      }
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -1383,10 +1457,12 @@ export default function SubmitPage() {
           Отправка работы
         </div>
         <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">
-          Заполни <span className="text-orange">кейс</span>
+          {isEditMode ? <>Редактировать <span className="text-orange">работу</span></> : <>Заполни <span className="text-orange">кейс</span></>}
         </h1>
         <p className="text-sm text-muted leading-relaxed max-w-lg">
-          Заполняй разделы в любом порядке. Черновик сохраняется автоматически.
+          {isEditMode
+            ? "Отредактируй разделы и отправь на повторную проверку."
+            : "Заполняй разделы в любом порядке. Черновик сохраняется автоматически."}
         </p>
       </div>
 
@@ -1640,7 +1716,7 @@ export default function SubmitPage() {
                 </>
               ) : (
                 <>
-                  Отправить на проверку
+                  {isEditMode ? "Сохранить и отправить на проверку" : "Отправить на проверку"}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                   </svg>
