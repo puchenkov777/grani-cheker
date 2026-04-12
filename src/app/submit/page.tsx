@@ -376,6 +376,16 @@ export default function SubmitPage() {
     setSteps((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
   }, []);
 
+  const moveStep = useCallback((index: number, direction: 'up' | 'down') => {
+    setSteps((prev) => {
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }, []);
+
   const updateResource = useCallback(
     (index: number, field: keyof Resource, value: string) => {
       setResources((prev) => {
@@ -391,6 +401,16 @@ export default function SubmitPage() {
 
   const removeResource = useCallback((index: number) => {
     setResources((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  }, []);
+
+  const moveResource = useCallback((index: number, direction: 'up' | 'down') => {
+    setResources((prev) => {
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -857,17 +877,39 @@ export default function SubmitPage() {
               Шаг {idx + 1}
             </div>
 
-            {/* Remove button */}
-            {steps.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeStep(idx)}
-                className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
-                title="Удалить шаг"
-              >
-                ✕
-              </button>
-            )}
+            {/* Move & Remove buttons */}
+            <div className="absolute top-3 right-3 flex items-center gap-1">
+              {idx > 0 && (
+                <button
+                  type="button"
+                  onClick={() => moveStep(idx, 'up')}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-orange-pale flex items-center justify-center text-muted hover:text-orange transition-colors text-xs font-bold"
+                  title="Переместить вверх"
+                >
+                  ↑
+                </button>
+              )}
+              {idx < steps.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => moveStep(idx, 'down')}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-orange-pale flex items-center justify-center text-muted hover:text-orange transition-colors text-xs font-bold"
+                  title="Переместить вниз"
+                >
+                  ↓
+                </button>
+              )}
+              {steps.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeStep(idx)}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
+                  title="Удалить шаг"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
             <div className="space-y-3 mt-2">
               {/* Шаг */}
@@ -977,17 +1019,39 @@ export default function SubmitPage() {
               Ресурс {idx + 1}
             </div>
 
-            {/* Remove button */}
-            {resources.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeResource(idx)}
-                className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
-                title="Удалить ресурс"
-              >
-                ✕
-              </button>
-            )}
+            {/* Move & Remove buttons */}
+            <div className="absolute top-3 right-3 flex items-center gap-1">
+              {idx > 0 && (
+                <button
+                  type="button"
+                  onClick={() => moveResource(idx, 'up')}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-orange-pale flex items-center justify-center text-muted hover:text-orange transition-colors text-xs font-bold"
+                  title="Переместить вверх"
+                >
+                  ↑
+                </button>
+              )}
+              {idx < resources.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => moveResource(idx, 'down')}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-orange-pale flex items-center justify-center text-muted hover:text-orange transition-colors text-xs font-bold"
+                  title="Переместить вниз"
+                >
+                  ↓
+                </button>
+              )}
+              {resources.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeResource(idx)}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
+                  title="Удалить ресурс"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
             <div className="grid md:grid-cols-3 gap-3 mt-2">
               {/* Ресурс */}
