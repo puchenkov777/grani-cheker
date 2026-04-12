@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [mentor, setMentor] = useState("");
@@ -21,13 +21,13 @@ export default function AuthPage() {
     try {
       if (mode === "register") {
         if (!name.trim()) { setError("Введите имя и фамилию"); setLoading(false); return; }
-        if (!email.trim()) { setError("Введите email"); setLoading(false); return; }
+        if (!telegram.trim()) { setError("Введите Telegram"); setLoading(false); return; }
         if (password.length < 6) { setError("Пароль — минимум 6 символов"); setLoading(false); return; }
 
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), password, name: name.trim(), mentor: mentor || null }),
+          body: JSON.stringify({ telegram: telegram.trim(), password, name: name.trim(), mentor: mentor || null }),
         });
         const data = await res.json();
         if (!res.ok) { setError(data.error || "Ошибка регистрации"); setLoading(false); return; }
@@ -35,12 +35,12 @@ export default function AuthPage() {
         localStorage.setItem("user_auth", JSON.stringify({ ...data.user, ts: Date.now() }));
         router.push("/submit");
       } else {
-        if (!email.trim() || !password) { setError("Введите email и пароль"); setLoading(false); return; }
+        if (!telegram.trim() || !password) { setError("Введите Telegram и пароль"); setLoading(false); return; }
 
         const res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), password }),
+          body: JSON.stringify({ telegram: telegram.trim(), password }),
         });
         const data = await res.json();
         if (!res.ok) { setError(data.error || "Ошибка входа"); setLoading(false); return; }
@@ -114,8 +114,8 @@ export default function AuthPage() {
         )}
 
         <label className="block">
-          <span className="text-xs font-bold text-dark mb-1.5 block">Email <span className="text-orange">*</span></span>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" className={inputClass} />
+          <span className="text-xs font-bold text-dark mb-1.5 block">Telegram <span className="text-orange">*</span></span>
+          <input type="text" value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="@username или t.me/username" className={inputClass} />
         </label>
 
         <label className="block">

@@ -1,7 +1,7 @@
 -- Таблица пользователей (участников)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
+    telegram TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
     mentor TEXT,
@@ -22,7 +22,7 @@ ALTER TABLE participants ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(
 ALTER TABLE submissions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE SET NULL;
 
 -- Индексы
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_telegram ON users(telegram);
 CREATE INDEX IF NOT EXISTS idx_participants_user ON participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions(user_id);
 

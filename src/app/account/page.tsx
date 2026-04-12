@@ -14,7 +14,7 @@ interface UserSubmission {
 
 interface UserInfo {
   id: string;
-  email: string;
+  telegram: string;
   name: string;
   mentor: string | null;
   created_at: string;
@@ -121,7 +121,7 @@ export default function AccountPage() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{user.name}</h1>
           <p className="text-xs text-muted mt-1">
-            {user.email}
+            {user.telegram && <>@{user.telegram}</>}
             {user.mentor && <> &middot; Ментор: <span className="font-bold text-orange">{user.mentor}</span></>}
           </p>
         </div>
