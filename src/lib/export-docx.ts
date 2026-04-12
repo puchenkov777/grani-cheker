@@ -22,6 +22,7 @@ interface Resource { resource: string; cost: string; source: string }
 interface DraftData {
   name: string;
   mentor: string;
+  challenge?: string;
   caseTitle: string;
   facts: Fact[];
   generalConclusion: string;

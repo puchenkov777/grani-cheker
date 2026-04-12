@@ -205,6 +205,7 @@ export default function SubmitPage() {
   /* ---------- Participant info ---------- */
   const [name, setName] = useState("");
   const [mentor, setMentor] = useState("");
+  const [challenge, setChallenge] = useState("");
   const [caseTitle, setCaseTitle] = useState("");
 
   /* ---------- Section 1: Analytics ---------- */
@@ -307,6 +308,7 @@ export default function SubmitPage() {
     function applyDraft(d: Record<string, unknown>) {
       if (d.name && !userId) setName(d.name as string);
       if (d.mentor && !userId) setMentor(d.mentor as string);
+      if (d.challenge) setChallenge(d.challenge as string);
       if (d.caseTitle) setCaseTitle(d.caseTitle as string);
       if ((d.facts as Fact[])?.length) setFacts(d.facts as Fact[]);
       if (d.generalConclusion) setGeneralConclusion(d.generalConclusion as string);
@@ -326,7 +328,7 @@ export default function SubmitPage() {
   // Build draft object
   function buildDraft() {
     return {
-      name, mentor, caseTitle,
+      name, mentor, challenge, caseTitle,
       facts, generalConclusion,
       ideaFields, ideaFileDesc,
       steps, stepsFileDesc,
@@ -353,7 +355,7 @@ export default function SubmitPage() {
       }
     }, 5000);
     return () => clearInterval(timer);
-  }, [name, mentor, caseTitle, facts, generalConclusion, ideaFields, ideaFileDesc, steps, stepsFileDesc, resources, pptxComment, currentStep, submitted, userId]);
+  }, [name, mentor, challenge, caseTitle, facts, generalConclusion, ideaFields, ideaFileDesc, steps, stepsFileDesc, resources, pptxComment, currentStep, submitted, userId]);
 
   function saveDraftManual() {
     const draft = buildDraft();
@@ -387,7 +389,7 @@ export default function SubmitPage() {
   async function handleExportDocx() {
     const { exportToDocx } = await import("@/lib/export-docx");
     await exportToDocx({
-      name, mentor, caseTitle,
+      name, mentor, challenge, caseTitle,
       facts, generalConclusion,
       ideaFields, steps, resources,
     });
@@ -447,7 +449,7 @@ export default function SubmitPage() {
     }, []);
 
   const addStep = useCallback(() => {
-    setSteps((prev) => (prev.length < 15 ? [...prev, { ...EMPTY_STEP }] : prev));
+    setSteps((prev) => (prev.length < 20 ? [...prev, { ...EMPTY_STEP }] : prev));
   }, []);
 
   const removeStep = useCallback((index: number) => {
@@ -474,7 +476,7 @@ export default function SubmitPage() {
     }, []);
 
   const addResource = useCallback(() => {
-    setResources((prev) => (prev.length < 30 ? [...prev, { ...EMPTY_RESOURCE }] : prev));
+    setResources((prev) => (prev.length < 20 ? [...prev, { ...EMPTY_RESOURCE }] : prev));
   }, []);
 
   const removeResource = useCallback((index: number) => {
@@ -553,9 +555,12 @@ export default function SubmitPage() {
   /* ---------------------------------------------------------------- */
 
   const handlePptxFile = useCallback((f: File | null) => {
-    if (f && !f.name.toLowerCase().endsWith(".pptx")) {
-      setErrors(["Допустимый формат файла — только .pptx"]);
-      return;
+    if (f) {
+      const ext = f.name.toLowerCase().slice(f.name.lastIndexOf("."));
+      if (![".pptx", ".pdf", ".docx", ".doc"].includes(ext)) {
+        setErrors(["Допустимые форматы: .pptx, .pdf, .docx"]);
+        return;
+      }
     }
     setErrors([]);
     setPptxFile(f);
@@ -644,9 +649,10 @@ export default function SubmitPage() {
       }
 
       case "presentation": {
-        if (!pptxFile) return ["Загрузите файл презентации (.pptx)"];
-        if (!pptxFile.name.toLowerCase().endsWith(".pptx"))
-          return ["Допустимый формат файла — только .pptx"];
+        if (!pptxFile) return ["Загрузите файл презентации (.pptx, .pdf, .docx)"];
+        const ext = pptxFile.name.toLowerCase().slice(pptxFile.name.lastIndexOf("."));
+        if (![".pptx", ".pdf", ".docx", ".doc"].includes(ext))
+          return ["Допустимые форматы: .pptx, .pdf, .docx"];
         return [];
       }
 
@@ -687,6 +693,19 @@ export default function SubmitPage() {
       return;
     }
 
+    // At least 1 section must have some content
+    const hasAnalytics = facts.some((f) => f.fact.trim().length > 0);
+    const hasIdea = Object.values(ideaFields).some((v) => v.trim().length > 0);
+    const hasSteps = steps.some((s) => s.step.trim().length > 0);
+    const hasBudget = resources.some((r) => r.resource.trim().length > 0);
+    const hasPresentation = !!pptxFile;
+
+    if (!hasAnalytics && !hasIdea && !hasSteps && !hasBudget && !hasPresentation) {
+      setErrors(["Заполните хотя бы один раздел перед отправкой"]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setErrors([]);
     setIsSubmitting(true);
 
@@ -694,6 +713,7 @@ export default function SubmitPage() {
       const formData = new FormData();
       formData.append("name", name.trim());
       formData.append("mentor", mentor);
+      formData.append("challenge", challenge);
       formData.append("case_title", caseTitle.trim());
       if (userId) formData.append("user_id", userId);
 
@@ -1017,21 +1037,7 @@ export default function SubmitPage() {
             hint="Форматы: .jpg, .png, .pdf, .doc, .docx — до 15 МБ"
             inputRef={ideaFileRef}
           />
-          {ideaFile && (
-            <div className="mt-3">
-              <label className="text-xs font-bold text-dark mb-1.5 block">
-                Опиши что на схеме/в файле <span className="text-orange">*</span>
-              </label>
-              <textarea
-                value={ideaFileDesc}
-                onChange={(e) => setIdeaFileDesc(e.target.value.slice(0, 500))}
-                placeholder="Опиши содержимое загруженного файла: что изображено на схеме, какие данные в таблице..."
-                rows={3}
-                className={textareaClass}
-              />
-              <CharCounter current={ideaFileDesc.length} max={500} />
-            </div>
-          )}
+
         </div>
       </div>
     );
@@ -1127,7 +1133,7 @@ export default function SubmitPage() {
                   onChange={(e) =>
                     updateStep(idx, "timeframe", e.target.value)
                   }
-                  placeholder="Например: 09.01-15.01.2026"
+                  placeholder="Например: 7 дней или 09.01-15.01.2026"
                   className={inputClass}
                 />
               </div>
@@ -1152,7 +1158,7 @@ export default function SubmitPage() {
         ))}
 
         {/* Add step button */}
-        {steps.length < 15 && (
+        {steps.length < 20 && (
           <button
             type="button"
             onClick={addStep}
@@ -1176,21 +1182,7 @@ export default function SubmitPage() {
             hint="Форматы: .jpg, .png, .pdf — до 15 МБ"
             inputRef={stepsFileRef}
           />
-          {stepsFile && (
-            <div className="mt-3">
-              <label className="text-xs font-bold text-dark mb-1.5 block">
-                Опиши что на схеме/в файле <span className="text-orange">*</span>
-              </label>
-              <textarea
-                value={stepsFileDesc}
-                onChange={(e) => setStepsFileDesc(e.target.value.slice(0, 500))}
-                placeholder="Опиши содержимое: что изображено на таймлайне, какие этапы на диаграмме Ганта..."
-                rows={3}
-                className={textareaClass}
-              />
-              <CharCounter current={stepsFileDesc.length} max={500} />
-            </div>
-          )}
+
         </div>
       </div>
     );
@@ -1258,7 +1250,7 @@ export default function SubmitPage() {
               )}
             </div>
 
-            <div className="grid md:grid-cols-3 gap-3 mt-2">
+            <div className="space-y-3 mt-2">
               {/* Ресурс */}
               <div>
                 <label className="text-xs font-bold text-dark mb-1 block">
@@ -1311,7 +1303,7 @@ export default function SubmitPage() {
         ))}
 
         {/* Add resource button */}
-        {resources.length < 30 && (
+        {resources.length < 20 && (
           <button
             type="button"
             onClick={addResource}
@@ -1330,9 +1322,9 @@ export default function SubmitPage() {
         <FileUploadZone
           file={pptxFile}
           onFile={handlePptxFile}
-          accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          accept=".pptx,.pdf,.docx,.doc"
           label="Перетащи файл сюда или нажми для выбора"
-          hint="Только файлы .pptx (PowerPoint)"
+          hint="Форматы: .pptx, .pdf, .docx"
           inputRef={pptxFileRef}
         />
         <div>
@@ -1343,7 +1335,7 @@ export default function SubmitPage() {
           <textarea
             value={pptxComment}
             onChange={(e) => setPptxComment(e.target.value.slice(0, 700))}
-            placeholder="Что нам нужно еще знать о проекте?"
+            placeholder="Комментарий к присланным материалам"
             rows={4}
             className={textareaClass}
           />
@@ -1450,13 +1442,38 @@ export default function SubmitPage() {
 
           <label className="block">
             <span className="text-xs font-bold text-dark mb-1.5 block">
+              Вызов <span className="text-orange">*</span>
+            </span>
+            <select
+              value={challenge}
+              onChange={(e) => setChallenge(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Выбери свой вызов</option>
+              <option value="Создавай будущее!">Создавай будущее!</option>
+              <option value="Твори!">Твори!</option>
+              <option value="Расскажи о главном!">Расскажи о главном!</option>
+              <option value="Делай добро!">Делай добро!</option>
+              <option value="Помни!">Помни!</option>
+              <option value="Будь здоров!">Будь здоров!</option>
+              <option value="Сохраняй природу!">Сохраняй природу!</option>
+              <option value="Познавай Россию!">Познавай Россию!</option>
+              <option value="Предпринимай!">Предпринимай!</option>
+              <option value="Открывай новое!">Открывай новое!</option>
+              <option value="Меняй мир вокруг!">Меняй мир вокруг!</option>
+              <option value="Служи Отечеству!">Служи Отечеству!</option>
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-bold text-dark mb-1.5 block">
               Название кейса <span className="text-orange">*</span>
             </span>
             <input
               type="text"
               value={caseTitle}
               onChange={(e) => setCaseTitle(e.target.value)}
-              placeholder="Мой социальный проект"
+              placeholder="Название кейса (не проекта)"
               className={inputClass}
             />
           </label>
@@ -1520,6 +1537,13 @@ export default function SubmitPage() {
         </div>
       )}
 
+      {/* ---------- Submit info banner ---------- */}
+      {isLastStep && (
+        <div className="bg-orange-pale border border-orange/30 rounded-xl px-5 py-3 mb-4 text-sm text-dark leading-relaxed">
+          Можно отправить работу на проверку в любой момент — даже если заполнен только один раздел. Ментор даст обратную связь и поможет доработать.
+        </div>
+      )}
+
       {/* ---------- Navigation + Draft buttons ---------- */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <button
@@ -1576,7 +1600,7 @@ export default function SubmitPage() {
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex items-center gap-2 bg-orange text-white px-8 py-3 rounded-xl text-sm font-extrabold shadow-[0_8px_30px_rgba(255,143,15,0.35)] hover:bg-orange-light hover:shadow-[0_14px_40px_rgba(255,143,15,0.45)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:pointer-events-none"
+              className="flex items-center gap-2 bg-orange text-white px-10 py-4 rounded-xl text-sm font-extrabold shadow-[0_0_30px_rgba(255,143,15,0.5)] ring-4 ring-orange/20 hover:bg-orange-light hover:shadow-[0_0_40px_rgba(255,143,15,0.6)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:pointer-events-none animate-pulse-glow"
             >
               {isSubmitting ? (
                 <>
