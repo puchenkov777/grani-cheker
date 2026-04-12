@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { openai } from '@/lib/openai'
 import { parsePptx } from '@/lib/pptx-parser'
+import { extractTextFromFile } from '@/lib/file-text-extractor'
 import {
   getSystemPrompt as analyticsSystem,
   getUserPrompt as analyticsUser,
@@ -170,12 +171,67 @@ export async function POST(request: NextRequest) {
     let successCount = 0
     const run1Scores: Partial<Record<SectionKey, number>> = {}
 
+    // Extract text from attachment files (idea + steps)
+    let ideaAttachmentText = ''
+    let stepsAttachmentText = ''
+
+    if (submission.idea_attachment_path) {
+      try {
+        const { data: fileData } = await supabase.storage
+          .from('submissions')
+          .download(submission.idea_attachment_path)
+        if (fileData) {
+          const buf = await fileData.arrayBuffer()
+          ideaAttachmentText = await extractTextFromFile(buf, submission.idea_attachment_path)
+        }
+      } catch (e) {
+        console.error('Failed to extract idea attachment text:', e)
+      }
+    }
+
+    if (submission.steps_attachment_path) {
+      try {
+        const { data: fileData } = await supabase.storage
+          .from('submissions')
+          .download(submission.steps_attachment_path)
+        if (fileData) {
+          const buf = await fileData.arrayBuffer()
+          stepsAttachmentText = await extractTextFromFile(buf, submission.steps_attachment_path)
+        }
+      } catch (e) {
+        console.error('Failed to extract steps attachment text:', e)
+      }
+    }
+
     // Process text sections (analytics, idea, steps, budget)
     for (const section of TEXT_SECTIONS) {
-      const text = submission[section.field]
+      let text = submission[section.field]
       if (!text) {
         console.warn(`No text for section ${section.key}, skipping`)
         continue
+      }
+
+      // Append attachment content for idea and steps
+      if (section.key === 'idea') {
+        const extras: string[] = []
+        if (submission.idea_file_description) {
+          extras.push(`\n\n--- ОПИСАНИЕ ПРИЛОЖЕННОЙ СХЕМЫ/ТАБЛИЦЫ ---\n${submission.idea_file_description}`)
+        }
+        if (ideaAttachmentText) {
+          extras.push(`\n\n--- ТЕКСТ ИЗ ПРИЛОЖЕННОГО ФАЙЛА ---\n${ideaAttachmentText}`)
+        }
+        if (extras.length) text = text + extras.join('')
+      }
+
+      if (section.key === 'steps') {
+        const extras: string[] = []
+        if (submission.steps_file_description) {
+          extras.push(`\n\n--- ОПИСАНИЕ ПРИЛОЖЕННОЙ СХЕМЫ/ТАЙМЛАЙНА ---\n${submission.steps_file_description}`)
+        }
+        if (stepsAttachmentText) {
+          extras.push(`\n\n--- ТЕКСТ ИЗ ПРИЛОЖЕННОГО ФАЙЛА ---\n${stepsAttachmentText}`)
+        }
+        if (extras.length) text = text + extras.join('')
       }
 
       try {

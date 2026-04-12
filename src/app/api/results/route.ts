@@ -59,6 +59,10 @@ export async function GET() {
     grade: sub.total_scores?.grade ?? null,
     needs_review: sub.total_scores?.needs_review ?? false,
     scores: scoresMap[sub.id] ?? {},
+    section_analytics: sub.section_analytics ?? null,
+    section_idea: sub.section_idea ?? null,
+    section_steps: sub.section_steps ?? null,
+    section_budget: sub.section_budget ?? null,
   }))
 
   return NextResponse.json({ data })

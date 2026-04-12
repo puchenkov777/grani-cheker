@@ -9,8 +9,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Грани Чекер | Автоматическая проверка кейсов",
-  description: "Сервис автоматической проверки решений кейсов Большой перемены от Платформы Грани",
+  title: "Грани Чекер | Проверка кейсов",
+  description: "Сервис проверки решений кейсов Большой перемены от Платформы Грани",
 };
 
 export default function RootLayout({
@@ -39,14 +39,14 @@ export default function RootLayout({
               <a href="/submit" className="text-xs font-semibold tracking-wide hover:text-orange transition-colors">
                 Сдать работу
               </a>
-              <a href="/dashboard" className="text-xs font-semibold tracking-wide hover:text-orange transition-colors">
-                Дашборд
+              <a href="/login" className="text-xs font-semibold tracking-wide hover:text-orange transition-colors">
+                Для менторов
               </a>
               <a
                 href="/submit"
                 className="bg-orange text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-orange-light transition-colors"
               >
-                Начать проверку
+                Заполнить кейс
               </a>
             </nav>
           </div>

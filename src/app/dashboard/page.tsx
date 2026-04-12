@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 interface Submission {
   id: string
@@ -15,6 +16,10 @@ interface Submission {
   grade: string | null
   needs_review: boolean
   scores: Record<string, number>
+  section_analytics: string | null
+  section_idea: string | null
+  section_steps: string | null
+  section_budget: string | null
 }
 
 type StatusFilter = 'all' | 'pending' | 'checking' | 'done' | 'review' | 'error'
@@ -36,8 +41,8 @@ const STATUS_COLORS: Record<string, string> = {
   error: 'bg-red-100 text-red-600 border-red-300',
 }
 
-const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation'] as const
-const SECTION_HEADERS = ['Аналитика', 'Идея', 'Шаги', 'Бюджет', 'Презентация']
+const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation'] as const
+const SECTION_HEADERS = ['Аналитика', 'Идея', 'Шаги', 'Бюджет', 'Покажи что получилось', 'Связанность']
 
 function scoreColorClass(score: number | undefined): string {
   if (score === undefined || score === null) return 'text-muted'
@@ -111,8 +116,34 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortAsc, setSortAsc] = useState(false)
   const [search, setSearch] = useState('')
+  const [authed, setAuthed] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedDetail, setSelectedDetail] = useState<Submission | null>(null)
+  const [detailScores, setDetailScores] = useState<Array<{section: string, score: number, reasoning: string, strengths: string[], weaknesses: string[]}>>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [showCase, setShowCase] = useState(false)
+
+  // Check auth
+  useEffect(() => {
+    const auth = localStorage.getItem('mentor_auth')
+    if (!auth) {
+      router.push('/login')
+      return
+    }
+    try {
+      const parsed = JSON.parse(auth)
+      if (parsed.name && parsed.ts) {
+        setAuthed(true)
+      } else {
+        router.push('/login')
+      }
+    } catch {
+      router.push('/login')
+    }
+  }, [router])
 
   useEffect(() => {
+    if (!authed) return
     async function fetchData() {
       try {
         const res = await fetch('/api/results')
@@ -126,7 +157,173 @@ export default function DashboardPage() {
       }
     }
     fetchData()
+  }, [authed])
+
+  // Fetch detailed scores for a submission
+  const openDetail = useCallback(async (sub: Submission) => {
+    setSelectedId(sub.id)
+    setSelectedDetail(sub)
+    setDetailLoading(true)
+    try {
+      const { data } = await supabase
+        .from('scores')
+        .select('section, score, reasoning, strengths, weaknesses')
+        .eq('submission_id', sub.id)
+        .eq('run_number', 1)
+        .order('section')
+      setDetailScores(data ?? [])
+    } catch {
+      setDetailScores([])
+    } finally {
+      setDetailLoading(false)
+    }
   }, [])
+
+  // Download docx for selected submission
+  const handleDownloadDocx = useCallback(async () => {
+    if (!selectedDetail) return
+    const { exportToDocx } = await import('@/lib/export-docx')
+
+    // Parse JSON fields back into structured data
+    let facts = [{ fact: '', conclusion: '', source: '' }]
+    let generalConclusion = ''
+    let ideaFields = { name: '', concept: '', audience: '', how_it_works: '', benefit: '' }
+    let steps = [{ step: '', timeframe: '', expected_result: '' }]
+    let resources = [{ resource: '', cost: '', source: '' }]
+
+    try {
+      if (selectedDetail.section_analytics) {
+        const a = JSON.parse(selectedDetail.section_analytics)
+        if (a.facts) facts = a.facts
+        if (a.general_conclusion) generalConclusion = a.general_conclusion
+      }
+    } catch { /* raw text fallback */ }
+
+    try {
+      if (selectedDetail.section_idea) {
+        ideaFields = JSON.parse(selectedDetail.section_idea)
+      }
+    } catch { /* raw text */ }
+
+    try {
+      if (selectedDetail.section_steps) {
+        steps = JSON.parse(selectedDetail.section_steps)
+      }
+    } catch { /* raw text */ }
+
+    try {
+      if (selectedDetail.section_budget) {
+        resources = JSON.parse(selectedDetail.section_budget)
+      }
+    } catch { /* raw text */ }
+
+    await exportToDocx({
+      name: selectedDetail.participant_name || '—',
+      mentor: '',
+      caseTitle: selectedDetail.case_title || '—',
+      facts,
+      generalConclusion,
+      ideaFields,
+      steps,
+      resources,
+    })
+  }, [selectedDetail])
+
+  // Render a case section with JSON parsing
+  function renderCaseSection(title: string, raw: string | null) {
+    if (!raw) return (
+      <div className="bg-gray rounded-xl p-4 border border-gray2">
+        <p className="text-xs font-bold text-muted mb-1">{title}</p>
+        <p className="text-xs text-muted italic">Не заполнено</p>
+      </div>
+    )
+
+    // Try to parse as JSON and render nicely
+    try {
+      const parsed = JSON.parse(raw)
+
+      // Analytics: { facts: [...], general_conclusion }
+      if (parsed.facts && Array.isArray(parsed.facts)) {
+        const filledFacts = parsed.facts.filter((f: { fact: string }) => f.fact?.trim())
+        return (
+          <div className="bg-gray rounded-xl p-4 border border-gray2">
+            <p className="text-xs font-bold text-dark mb-2">{title}</p>
+            {filledFacts.map((f: { fact: string; conclusion: string; source: string }, i: number) => (
+              <div key={i} className="mb-2 pl-3 border-l-2 border-orange/30">
+                <p className="text-xs text-dark"><span className="font-bold text-orange">Факт {i + 1}:</span> {f.fact}</p>
+                {f.conclusion && <p className="text-xs text-muted">Вывод: {f.conclusion}</p>}
+                {f.source && <p className="text-xs text-muted">Источник: {f.source}</p>}
+              </div>
+            ))}
+            {parsed.general_conclusion && (
+              <div className="mt-2 pt-2 border-t border-gray2">
+                <p className="text-xs font-bold text-dark">Общий вывод:</p>
+                <p className="text-xs text-dark">{parsed.general_conclusion}</p>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      // Idea: { name, concept, audience, how_it_works, benefit }
+      if (parsed.name !== undefined && parsed.concept !== undefined) {
+        return (
+          <div className="bg-gray rounded-xl p-4 border border-gray2">
+            <p className="text-xs font-bold text-dark mb-2">{title}</p>
+            {parsed.name && <p className="text-xs mb-1"><span className="font-bold">Название:</span> {parsed.name}</p>}
+            {parsed.concept && <p className="text-xs mb-1"><span className="font-bold">Концепция:</span> {parsed.concept}</p>}
+            {parsed.audience && <p className="text-xs mb-1"><span className="font-bold">ЦА:</span> {parsed.audience}</p>}
+            {parsed.how_it_works && <p className="text-xs mb-1"><span className="font-bold">Как работает:</span> {parsed.how_it_works}</p>}
+            {parsed.benefit && <p className="text-xs mb-1"><span className="font-bold">Польза:</span> {parsed.benefit}</p>}
+          </div>
+        )
+      }
+
+      // Steps: array of { step, timeframe, expected_result }
+      if (Array.isArray(parsed) && parsed[0]?.step !== undefined) {
+        const filledSteps = parsed.filter((s: { step: string }) => s.step?.trim())
+        return (
+          <div className="bg-gray rounded-xl p-4 border border-gray2">
+            <p className="text-xs font-bold text-dark mb-2">{title}</p>
+            {filledSteps.map((s: { step: string; timeframe: string; expected_result: string }, i: number) => (
+              <div key={i} className="mb-2 pl-3 border-l-2 border-orange/30">
+                <p className="text-xs text-dark"><span className="font-bold text-orange">Шаг {i + 1}:</span> {s.step}</p>
+                {s.timeframe && <p className="text-xs text-muted">Время: {s.timeframe}</p>}
+                {s.expected_result && <p className="text-xs text-muted">Результат: {s.expected_result}</p>}
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      // Budget: array of { resource, cost, source }
+      if (Array.isArray(parsed) && parsed[0]?.resource !== undefined) {
+        const filledRes = parsed.filter((r: { resource: string }) => r.resource?.trim())
+        return (
+          <div className="bg-gray rounded-xl p-4 border border-gray2">
+            <p className="text-xs font-bold text-dark mb-2">{title}</p>
+            {filledRes.map((r: { resource: string; cost: string; source: string }, i: number) => (
+              <div key={i} className="mb-1 flex gap-3 text-xs">
+                <span className="font-bold text-dark">{r.resource}</span>
+                <span className="text-muted">{r.cost}</span>
+                {r.source && <span className="text-muted truncate max-w-[200px]">{r.source}</span>}
+              </div>
+            ))}
+          </div>
+        )
+      }
+    } catch {
+      // Not JSON — render as plain text
+    }
+
+    // Fallback: raw text
+    return (
+      <div className="bg-gray rounded-xl p-4 border border-gray2">
+        <p className="text-xs font-bold text-dark mb-1">{title}</p>
+        <p className="text-xs text-dark whitespace-pre-wrap leading-relaxed">{raw}</p>
+      </div>
+    )
+  }
 
   // Filter
   let filtered = submissions
@@ -359,10 +556,10 @@ export default function DashboardPage() {
                 {filtered.map((sub) => (
                   <tr
                     key={sub.id}
-                    onClick={() => router.push(`/results/${sub.id}`)}
+                    onClick={() => openDetail(sub)}
                     className={`border-b border-gray2 last:border-b-0 cursor-pointer hover:bg-orange-pale/40 transition-colors ${
                       sub.needs_review ? 'border-l-4 border-l-orange' : ''
-                    }`}
+                    } ${selectedId === sub.id ? 'bg-orange-pale/30' : ''}`}
                   >
                     <td className="px-4 py-3 font-semibold text-dark whitespace-nowrap max-w-[180px] truncate">
                       {sub.participant_name ?? '—'}
@@ -415,6 +612,118 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Detail panel */}
+      {selectedId && selectedDetail && (
+        <div className="mt-8 bg-white rounded-2xl border border-gray2 shadow-sm p-6 md:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-black">
+                {selectedDetail.participant_name ?? '—'}
+              </h3>
+              <p className="text-xs text-muted mt-0.5">
+                Кейс: {selectedDetail.case_title} &middot; Итого: <span className="font-bold text-dark">{selectedDetail.total ?? '—'}/200</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Download DOCX */}
+              <button
+                onClick={handleDownloadDocx}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale transition-all"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Скачать .docx
+              </button>
+              {/* Toggle case view */}
+              <button
+                onClick={() => setShowCase(!showCase)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border transition-all ${showCase ? 'border-orange text-orange bg-orange-pale' : 'border-gray2 text-muted hover:border-orange hover:text-orange hover:bg-orange-pale'}`}
+              >
+                {showCase ? 'Скрыть кейс' : 'Показать кейс'}
+              </button>
+              {/* Close */}
+              <button
+                onClick={() => { setSelectedId(null); setSelectedDetail(null); setDetailScores([]); setShowCase(false); }}
+                className="text-muted hover:text-dark text-xl font-bold transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+
+          {/* Submitted case content */}
+          {showCase && (
+            <div className="mb-6 space-y-4">
+              <div className="text-[11px] font-bold tracking-[0.15em] uppercase text-orange flex items-center gap-2">
+                <span className="w-4 h-0.5 bg-orange" />
+                Отправленный кейс
+              </div>
+              {renderCaseSection('🔍 Аналитика', selectedDetail.section_analytics)}
+              {renderCaseSection('💡 Идея', selectedDetail.section_idea)}
+              {renderCaseSection('📋 Шаги', selectedDetail.section_steps)}
+              {renderCaseSection('💰 Бюджет', selectedDetail.section_budget)}
+            </div>
+          )}
+
+          {/* AI Scores */}
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <svg className="animate-spin h-6 w-6 text-orange" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+          ) : detailScores.length === 0 ? (
+            <p className="text-sm text-muted py-8 text-center">Результаты проверки ещё не готовы</p>
+          ) : (
+            <div className="space-y-4">
+              {detailScores.map((s) => {
+                const sectionNames: Record<string, string> = {
+                  analytics: '🔍 Аналитика',
+                  idea: '💡 Идея',
+                  steps: '📋 Шаги',
+                  budget: '💰 Бюджет',
+                  presentation: '📊 Покажи что получилось',
+                  cross_validation: '🔗 Связанность',
+                }
+                const barColor = s.score >= 30 ? 'bg-emerald-500' : s.score >= 20 ? 'bg-yellow-400' : s.score >= 10 ? 'bg-orange' : 'bg-red-500'
+                return (
+                  <div key={s.section} className="bg-gray rounded-xl p-5 border border-gray2">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-extrabold">{sectionNames[s.section] ?? s.section}</span>
+                      <span className="text-lg font-black">{s.score}<span className="text-sm font-bold text-muted">/40</span></span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-gray2 overflow-hidden mb-3">
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max((s.score / 40) * 100, 2)}%` }} />
+                    </div>
+                    {s.reasoning && (
+                      <p className="text-xs text-dark leading-relaxed mb-2">{s.reasoning}</p>
+                    )}
+                    {(s.strengths as string[])?.length > 0 && (
+                      <div className="mb-2">
+                        {(s.strengths as string[]).map((str, i) => (
+                          <p key={i} className="text-xs text-emerald-600 flex items-start gap-1.5"><span className="mt-0.5">✓</span>{str}</p>
+                        ))}
+                      </div>
+                    )}
+                    {(s.weaknesses as string[])?.length > 0 && (
+                      <div>
+                        {(s.weaknesses as string[]).map((w, i) => (
+                          <p key={i} className="text-xs text-red-500 flex items-start gap-1.5"><span className="mt-0.5">✗</span>{w}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

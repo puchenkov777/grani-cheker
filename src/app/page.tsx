@@ -11,15 +11,15 @@ export default function Home() {
         </div>
 
         <h1 className="text-4xl md:text-6xl font-black leading-[1.05] tracking-tight max-w-3xl mb-6">
-          Проверь свой кейс
+          Подготовь свой кейс
           <br />
-          <span className="text-orange">до отправки.</span>
+          <span className="text-orange">к отправке.</span>
         </h1>
 
         <p className="text-base md:text-lg text-muted max-w-xl leading-relaxed mb-10">
-          Загрузи решение кейса — нейронка оценит его{" "}
-          <strong className="text-dark font-bold">строго по критериям</strong>{" "}
-          Большой перемены и покажет, где доработать.
+          Заполни решение кейса{" "}
+          <strong className="text-dark font-bold">по разделам</strong>,
+          сохрани черновик и отправь на проверку ментору.
         </p>
 
         <div className="flex flex-wrap gap-4">
@@ -31,10 +31,10 @@ export default function Home() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </Link>
           <Link
-            href="/dashboard"
+            href="/login"
             className="inline-flex items-center gap-2 border-2 border-dark text-dark px-7 py-4 rounded-lg text-sm font-bold tracking-wide hover:border-orange hover:text-orange hover:bg-orange-pale transition-all"
           >
-            Дашборд куратора
+            Вход для менторов
           </Link>
         </div>
       </section>
@@ -46,25 +46,25 @@ export default function Home() {
           Как это работает
         </div>
         <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-12">
-          Три шага — <span className="text-orange">честная оценка</span>
+          Три шага — <span className="text-orange">простая отправка</span>
         </h2>
 
         <div className="grid md:grid-cols-3 gap-8">
           {[
             {
               num: "1",
-              title: "Загружаешь работу",
-              desc: "Заполняешь 5 разделов кейса: аналитика, идея, шаги, бюджет + презентация в PPTX",
+              title: "Заполняешь кейс",
+              desc: "5 разделов: аналитика, идея, шаги, бюджет + презентация. Можно в любом порядке, черновик сохраняется",
             },
             {
               num: "2",
-              title: "Нейронка проверяет",
-              desc: "ИИ оценивает каждый раздел строго по критериям Большой перемены. Двойная проверка для точности",
+              title: "Отправляешь ментору",
+              desc: "Работа уходит на проверку твоему ментору. Можно скачать черновик как Word-файл",
             },
             {
               num: "3",
-              title: "Получаешь разбор",
-              desc: "Баллы по каждому разделу (0-40), сильные и слабые стороны, конкретные рекомендации по доработке",
+              title: "Получаешь обратную связь",
+              desc: "Ментор проверяет работу по критериям Большой перемены и даёт рекомендации по доработке",
             },
           ].map((step) => (
             <div
@@ -85,17 +85,17 @@ export default function Home() {
       <section className="pb-24">
         <div className="text-[11px] font-bold tracking-[0.2em] uppercase text-orange mb-4 flex items-center gap-2.5">
           <span className="w-5 h-0.5 bg-orange" />
-          Что проверяем
+          Разделы кейса
         </div>
         <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-12">
-          Пять разделов — <span className="text-orange">пять оценок</span>
+          Пять разделов — <span className="text-orange">один кейс</span>
         </h2>
 
         <div className="grid md:grid-cols-5 gap-4">
           {[
             { emoji: "🔍", title: "Аналитика", desc: "Погрузись в тему: факты, источники, выводы" },
             { emoji: "💡", title: "Идея", desc: "Придумай решение: концепция, ЦА, принцип работы" },
-            { emoji: "📋", title: "Шаги", desc: "Придумай шаги: 7 шагов реализации проекта" },
+            { emoji: "📋", title: "Шаги", desc: "Продумай шаги: 7 шагов реализации проекта" },
             { emoji: "💰", title: "Бюджет", desc: "Рассчитай бюджет: ресурсы, источники, риски" },
             { emoji: "📊", title: "Презентация", desc: "Покажи результат: PPTX с итогами проекта" },
           ].map((section) => (

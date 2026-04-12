@@ -10,15 +10,19 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",
+    "docx": "^9.6.1",
+    "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "next": "16.2.3",
     "openai": "^6.34.0",
+    "pdf-parse": "^2.4.5",
     "pptx-parser": "^1.1.7-beta.9",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/file-saver": "^2.0.7",
     "@types/jszip": "^3.4.0",
     "@types/node": "^20.19.39",
     "@types/react": "^19",
