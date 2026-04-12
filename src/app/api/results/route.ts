@@ -63,6 +63,9 @@ export async function GET() {
     section_idea: sub.section_idea ?? null,
     section_steps: sub.section_steps ?? null,
     section_budget: sub.section_budget ?? null,
+    pptx_file_path: sub.pptx_file_path ?? null,
+    idea_attachment_path: sub.idea_attachment_path ?? null,
+    steps_attachment_path: sub.steps_attachment_path ?? null,
   }))
 
   return NextResponse.json({ data })

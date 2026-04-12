@@ -20,6 +20,9 @@ interface Submission {
   section_idea: string | null
   section_steps: string | null
   section_budget: string | null
+  pptx_file_path: string | null
+  idea_attachment_path: string | null
+  steps_attachment_path: string | null
 }
 
 type StatusFilter = 'all' | 'pending' | 'checking' | 'done' | 'review' | 'error'
@@ -158,6 +161,28 @@ export default function DashboardPage() {
     }
     fetchData()
   }, [authed])
+
+  // Download file from Supabase Storage
+  const handleDownloadFile = useCallback(async (filePath: string, label: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('submissions')
+        .download(filePath)
+      if (error || !data) {
+        alert('Ошибка скачивания файла')
+        return
+      }
+      const ext = filePath.split('.').pop() || 'bin'
+      const url = URL.createObjectURL(data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${label}.${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Ошибка скачивания файла')
+    }
+  }, [])
 
   // Fetch detailed scores for a submission
   const openDetail = useCallback(async (sub: Submission) => {
@@ -668,6 +693,42 @@ export default function DashboardPage() {
               {renderCaseSection('💡 Идея', selectedDetail.section_idea)}
               {renderCaseSection('📋 Шаги', selectedDetail.section_steps)}
               {renderCaseSection('💰 Бюджет', selectedDetail.section_budget)}
+
+              {/* Attachment files */}
+              {(selectedDetail.pptx_file_path || selectedDetail.idea_attachment_path || selectedDetail.steps_attachment_path) && (
+                <div className="bg-gray rounded-xl p-4 border border-gray2">
+                  <p className="text-xs font-bold text-dark mb-3">📎 Прикреплённые файлы</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedDetail.pptx_file_path && (
+                      <button
+                        onClick={() => handleDownloadFile(selectedDetail.pptx_file_path!, `${selectedDetail.participant_name || 'участник'}_презентация`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Презентация (.pptx)
+                      </button>
+                    )}
+                    {selectedDetail.idea_attachment_path && (
+                      <button
+                        onClick={() => handleDownloadFile(selectedDetail.idea_attachment_path!, `${selectedDetail.participant_name || 'участник'}_идея_приложение`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Доп. файл (Идея)
+                      </button>
+                    )}
+                    {selectedDetail.steps_attachment_path && (
+                      <button
+                        onClick={() => handleDownloadFile(selectedDetail.steps_attachment_path!, `${selectedDetail.participant_name || 'участник'}_шаги_приложение`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border border-gray2 bg-white text-dark hover:border-orange hover:text-orange transition-all"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Доп. файл (Шаги)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
