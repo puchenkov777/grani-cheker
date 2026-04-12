@@ -29,6 +29,7 @@ import {
 } from '@/lib/prompts/cross-validation'
 import {
   VALID_SCORES,
+  VALID_CROSS_SCORES,
   calculateGrade,
   type SectionKey,
   type ScoreResult,
@@ -70,7 +71,8 @@ const TEXT_SECTIONS: SectionConfig[] = [
 
 async function evaluateSection(
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  validScores: number[] = VALID_SCORES
 ): Promise<ScoreResult> {
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -89,9 +91,9 @@ async function evaluateSection(
 
   const parsed: ScoreResult = JSON.parse(content)
 
-  if (!VALID_SCORES.includes(parsed.score)) {
+  if (!validScores.includes(parsed.score)) {
     throw new Error(
-      `Invalid score ${parsed.score}. Must be one of: ${VALID_SCORES.join(', ')}`
+      `Invalid score ${parsed.score}. Must be one of: ${validScores.join(', ')}`
     )
   }
 
@@ -344,7 +346,7 @@ export async function POST(request: NextRequest) {
         presentation: presentationText || submission.pptx_parsed_text || '',
       })
 
-      const crossResult1 = await evaluateSection(crossSystemPrompt, crossUserPrompt)
+      const crossResult1 = await evaluateSection(crossSystemPrompt, crossUserPrompt, VALID_CROSS_SCORES)
       run1Scores.cross_validation = crossResult1.score
 
       await supabase.from('scores').insert({
@@ -358,7 +360,7 @@ export async function POST(request: NextRequest) {
         criteria_details: crossResult1,
       })
 
-      const crossResult2 = await evaluateSection(crossSystemPrompt, crossUserPrompt)
+      const crossResult2 = await evaluateSection(crossSystemPrompt, crossUserPrompt, VALID_CROSS_SCORES)
 
       if (crossResult1.score !== crossResult2.score) {
         needsReview = true

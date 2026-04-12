@@ -40,8 +40,16 @@ const STATUS_COLORS: Record<string, string> = {
 const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation'] as const
 const SECTION_HEADERS = ['Аналитика', 'Идея', 'Шаги', 'Бюджет', 'Покажи что получилось', 'Связанность']
 
-function scoreColorClass(score: number | undefined): string {
+function scoreColorClass(score: number | undefined, section?: string): string {
   if (score === undefined || score === null) return 'text-muted'
+  if (section === 'cross_validation') {
+    if (score === 0) return 'bg-red-100 text-red-600'
+    if (score === 1) return 'bg-orange-100 text-orange'
+    if (score === 2) return 'bg-yellow-100 text-yellow-700'
+    if (score === 3) return 'bg-lime-100 text-lime-700'
+    if (score === 4) return 'bg-emerald-100 text-emerald-700'
+    return 'text-muted'
+  }
   if (score === 0) return 'bg-red-100 text-red-600'
   if (score === 10) return 'bg-orange-100 text-orange'
   if (score === 20) return 'bg-yellow-100 text-yellow-700'
@@ -283,7 +291,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-dark whitespace-nowrap max-w-[160px] truncate">{sub.case_title}</td>
                     {SECTIONS.map(sec => {
                       const score = sub.scores[sec]
-                      return <td key={sec} className="text-center px-2 py-3">{score !== undefined && score !== null ? <span className={`inline-flex items-center justify-center w-9 h-7 rounded-md text-xs font-bold ${scoreColorClass(score)}`}>{score}</span> : <span className="text-muted text-xs">—</span>}</td>
+                      return <td key={sec} className="text-center px-2 py-3">{score !== undefined && score !== null ? <span className={`inline-flex items-center justify-center w-9 h-7 rounded-md text-xs font-bold ${scoreColorClass(score, sec)}`}>{score}</span> : <span className="text-muted text-xs">—</span>}</td>
                     })}
                     <td className="text-center px-4 py-3">{sub.total !== null ? <span className="text-sm font-black text-dark">{sub.total}</span> : <span className="text-muted text-xs">—</span>}</td>
                     <td className="text-center px-4 py-3"><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border ${STATUS_COLORS[sub.status] ?? 'bg-gray text-muted border-gray2'}`}>{STATUS_LABELS[sub.status] ?? sub.status}</span></td>
@@ -341,11 +349,15 @@ export default function AdminPage() {
             <div className="space-y-4">
               {detailScores.map(s => {
                 const names: Record<string,string> = { analytics:'🔍 Аналитика', idea:'💡 Идея', steps:'📋 Шаги', budget:'💰 Бюджет', presentation:'📊 Покажи что получилось', cross_validation:'🔗 Связанность' }
-                const bar = s.score >= 30 ? 'bg-emerald-500' : s.score >= 20 ? 'bg-yellow-400' : s.score >= 10 ? 'bg-orange' : 'bg-red-500'
+                const isCross = s.section === 'cross_validation'
+                const maxScore = isCross ? 4 : 40
+                const bar = isCross
+                  ? (s.score >= 3 ? 'bg-emerald-500' : s.score >= 2 ? 'bg-yellow-400' : s.score >= 1 ? 'bg-orange' : 'bg-red-500')
+                  : (s.score >= 30 ? 'bg-emerald-500' : s.score >= 20 ? 'bg-yellow-400' : s.score >= 10 ? 'bg-orange' : 'bg-red-500')
                 return (
                   <div key={s.section} className="bg-gray rounded-xl p-5 border border-gray2">
-                    <div className="flex items-center justify-between mb-3"><span className="text-sm font-extrabold">{names[s.section] ?? s.section}</span><span className="text-lg font-black">{s.score}<span className="text-sm font-bold text-muted">/40</span></span></div>
-                    <div className="w-full h-2 rounded-full bg-gray2 overflow-hidden mb-3"><div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.max((s.score / 40) * 100, 2)}%` }} /></div>
+                    <div className="flex items-center justify-between mb-3"><span className="text-sm font-extrabold">{names[s.section] ?? s.section}</span><span className="text-lg font-black">{s.score}<span className="text-sm font-bold text-muted">/{maxScore}</span></span></div>
+                    <div className="w-full h-2 rounded-full bg-gray2 overflow-hidden mb-3"><div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.max((s.score / maxScore) * 100, 2)}%` }} /></div>
                     {s.reasoning && <p className="text-xs text-dark leading-relaxed mb-2">{s.reasoning}</p>}
                     {(s.strengths as string[])?.length > 0 && <div className="mb-2">{(s.strengths as string[]).map((str, i) => <p key={i} className="text-xs text-emerald-600 flex items-start gap-1.5"><span className="mt-0.5">✓</span>{str}</p>)}</div>}
                     {(s.weaknesses as string[])?.length > 0 && <div>{(s.weaknesses as string[]).map((w, i) => <p key={i} className="text-xs text-red-500 flex items-start gap-1.5"><span className="mt-0.5">✗</span>{w}</p>)}</div>}

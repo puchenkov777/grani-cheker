@@ -9,6 +9,7 @@ export interface ScoreResult {
 }
 
 export const VALID_SCORES = [0, 10, 20, 30, 40]
+export const VALID_CROSS_SCORES = [0, 1, 2, 3, 4]
 
 export function calculateGrade(total: number): string {
   // Макс: 5 разделов × 40 = 200

@@ -55,8 +55,16 @@ const SECTION_LABELS: Record<string, string> = {
   cross_validation: 'Связанность',
 }
 
-function scoreColorClass(score: number | undefined): string {
+function scoreColorClass(score: number | undefined, section?: string): string {
   if (score === undefined || score === null) return 'text-muted'
+  if (section === 'cross_validation') {
+    if (score === 0) return 'bg-red-100 text-red-600'
+    if (score === 1) return 'bg-orange-100 text-orange'
+    if (score === 2) return 'bg-yellow-100 text-yellow-700'
+    if (score === 3) return 'bg-lime-100 text-lime-700'
+    if (score === 4) return 'bg-emerald-100 text-emerald-700'
+    return 'text-muted'
+  }
   if (score === 0) return 'bg-red-100 text-red-600'
   if (score === 10) return 'bg-orange-100 text-orange'
   if (score === 20) return 'bg-yellow-100 text-yellow-700'
@@ -572,7 +580,7 @@ export default function DashboardPage() {
                     <div key={sec} className="flex items-center gap-1">
                       <span className="text-[9px] text-muted">{SECTION_LABELS[sec]?.slice(0, 3)}</span>
                       {score !== undefined && score !== null ? (
-                        <span className={`inline-flex items-center justify-center w-7 h-5 rounded text-[10px] font-bold ${scoreColorClass(score)}`}>
+                        <span className={`inline-flex items-center justify-center w-7 h-5 rounded text-[10px] font-bold ${scoreColorClass(score, sec)}`}>
                           {score}
                         </span>
                       ) : (
@@ -643,7 +651,7 @@ export default function DashboardPage() {
                       return (
                         <td key={sec} className="text-center px-2 py-3">
                           {score !== undefined && score !== null ? (
-                            <span className={`inline-flex items-center justify-center w-9 h-7 rounded-md text-xs font-bold ${scoreColorClass(score)}`}>
+                            <span className={`inline-flex items-center justify-center w-9 h-7 rounded-md text-xs font-bold ${scoreColorClass(score, sec)}`}>
                               {score}
                             </span>
                           ) : (
@@ -782,15 +790,19 @@ export default function DashboardPage() {
                   presentation: 'Покажи что получилось',
                   cross_validation: 'Связанность',
                 }
-                const barColor = s.score >= 30 ? 'bg-emerald-500' : s.score >= 20 ? 'bg-yellow-400' : s.score >= 10 ? 'bg-orange' : 'bg-red-500'
+                const isCross = s.section === 'cross_validation'
+                const maxScore = isCross ? 4 : 40
+                const barColor = isCross
+                  ? (s.score >= 3 ? 'bg-emerald-500' : s.score >= 2 ? 'bg-yellow-400' : s.score >= 1 ? 'bg-orange' : 'bg-red-500')
+                  : (s.score >= 30 ? 'bg-emerald-500' : s.score >= 20 ? 'bg-yellow-400' : s.score >= 10 ? 'bg-orange' : 'bg-red-500')
                 return (
                   <div key={s.section} className="bg-gray rounded-xl p-4 sm:p-5 border border-gray2">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs sm:text-sm font-extrabold">{sectionNames[s.section] ?? s.section}</span>
-                      <span className="text-base sm:text-lg font-black">{s.score}<span className="text-xs sm:text-sm font-bold text-muted">/40</span></span>
+                      <span className="text-base sm:text-lg font-black">{s.score}<span className="text-xs sm:text-sm font-bold text-muted">/{maxScore}</span></span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-gray2 overflow-hidden mb-3">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max((s.score / 40) * 100, 2)}%` }} />
+                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max((s.score / maxScore) * 100, 2)}%` }} />
                     </div>
                     {s.reasoning && (
                       <p className="text-xs text-dark leading-relaxed mb-2">{s.reasoning}</p>
