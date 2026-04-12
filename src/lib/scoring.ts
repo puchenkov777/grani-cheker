@@ -1,4 +1,4 @@
-export type SectionKey = 'analytics' | 'idea' | 'steps' | 'budget' | 'presentation' | 'cross_validation'
+export type SectionKey = 'analytics' | 'idea' | 'steps' | 'budget' | 'presentation' | 'cross_validation' | 'task_compliance'
 
 export interface ScoreResult {
   score: number

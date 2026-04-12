@@ -37,8 +37,8 @@ const STATUS_COLORS: Record<string, string> = {
   review: 'bg-orange-pale text-orange border-orange/30',
   error: 'bg-red-100 text-red-600 border-red-300',
 }
-const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation'] as const
-const SECTION_HEADERS = ['Аналитика', 'Идея', 'Шаги', 'Бюджет', 'Покажи что получилось', 'Связанность']
+const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation', 'task_compliance'] as const
+const SECTION_HEADERS = ['Аналитика', 'Идея', 'Шаги', 'Бюджет', 'Покажи что получилось', 'Связанность', 'Соответствие']
 
 function scoreColorClass(score: number | undefined, section?: string): string {
   if (score === undefined || score === null) return 'text-muted'
@@ -348,8 +348,8 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-4">
               {detailScores.map(s => {
-                const names: Record<string,string> = { analytics:'🔍 Аналитика', idea:'💡 Идея', steps:'📋 Шаги', budget:'💰 Бюджет', presentation:'📊 Покажи что получилось', cross_validation:'🔗 Связанность' }
-                const isCross = s.section === 'cross_validation'
+                const names: Record<string,string> = { analytics:'🔍 Аналитика', idea:'💡 Идея', steps:'📋 Шаги', budget:'💰 Бюджет', presentation:'📊 Покажи что получилось', cross_validation:'🔗 Связанность', task_compliance:'📋 Соответствие заданию' }
+                const isCross = s.section === 'cross_validation' || s.section === 'task_compliance'
                 const maxScore = isCross ? 4 : 40
                 const bar = isCross
                   ? (s.score >= 3 ? 'bg-emerald-500' : s.score >= 2 ? 'bg-yellow-400' : s.score >= 1 ? 'bg-orange' : 'bg-red-500')

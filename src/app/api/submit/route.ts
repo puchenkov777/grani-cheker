@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const stepsFileDescription = formData.get('steps_file_description') as string | null
     const pptxComment = formData.get('pptx_comment') as string | null
     const userIdRaw = formData.get('user_id') as string | null
+    const caseIdRaw = formData.get('case_id') as string | null
 
     // Validate required fields
     if (!name || !caseTitle) {
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         steps_file_description: stepsFileDescription || null,
         pptx_comment: pptxComment || null,
         user_id: userIdRaw || null,
+        case_id: caseIdRaw || null,
         status: 'pending',
       })
       .select('id')

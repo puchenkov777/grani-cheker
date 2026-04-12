@@ -45,7 +45,7 @@ const STATUS_COLORS: Record<string, string> = {
   error: 'bg-red-100 text-red-600 border-red-300',
 }
 
-const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation'] as const
+const SECTIONS = ['analytics', 'idea', 'steps', 'budget', 'presentation', 'cross_validation', 'task_compliance'] as const
 const SECTION_LABELS: Record<string, string> = {
   analytics: 'Аналитика',
   idea: 'Идея',
@@ -53,6 +53,7 @@ const SECTION_LABELS: Record<string, string> = {
   budget: 'Бюджет',
   presentation: 'Презентация',
   cross_validation: 'Связанность',
+  task_compliance: 'Соответствие',
 }
 
 function scoreColorClass(score: number | undefined, section?: string): string {
@@ -789,8 +790,9 @@ export default function DashboardPage() {
                   budget: 'Бюджет',
                   presentation: 'Покажи что получилось',
                   cross_validation: 'Связанность',
+                  task_compliance: 'Соответствие заданию',
                 }
-                const isCross = s.section === 'cross_validation'
+                const isCross = s.section === 'cross_validation' || s.section === 'task_compliance'
                 const maxScore = isCross ? 4 : 40
                 const barColor = isCross
                   ? (s.score >= 3 ? 'bg-emerald-500' : s.score >= 2 ? 'bg-yellow-400' : s.score >= 1 ? 'bg-orange' : 'bg-red-500')

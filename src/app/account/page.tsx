@@ -12,6 +12,13 @@ interface UserSubmission {
   total_scores: { total: number; grade: string } | null;
 }
 
+interface UserCase {
+  id: string;
+  title: string;
+  task_text: string;
+  created_at: string;
+}
+
 interface UserInfo {
   id: string;
   telegram: string;
@@ -50,8 +57,16 @@ export default function AccountPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [submissions, setSubmissions] = useState<UserSubmission[]>([]);
+  const [cases, setCases] = useState<UserCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasDraft, setHasDraft] = useState(false);
+
+  // Add case form
+  const [showAddCase, setShowAddCase] = useState(false);
+  const [newCaseTitle, setNewCaseTitle] = useState("");
+  const [newCaseText, setNewCaseText] = useState("");
+  const [addingCase, setAddingCase] = useState(false);
+  const [caseError, setCaseError] = useState("");
 
   useEffect(() => {
     const raw = localStorage.getItem("user_auth");
@@ -70,20 +85,28 @@ export default function AccountPage() {
 
   const fetchData = useCallback(async (userId: string) => {
     try {
-      const res = await fetch(`/api/auth/me?user_id=${userId}`);
-      if (!res.ok) { router.push("/auth"); return; }
-      const data = await res.json();
-      setUser(data.user);
-      setSubmissions(data.submissions ?? []);
+      const [meRes, draftRes, casesRes] = await Promise.all([
+        fetch(`/api/auth/me?user_id=${userId}`),
+        fetch(`/api/drafts?user_id=${userId}`),
+        fetch(`/api/cases?user_id=${userId}`),
+      ]);
 
-      // Check if there's a draft
-      const draftRes = await fetch(`/api/drafts?user_id=${userId}`);
+      if (!meRes.ok) { router.push("/auth"); return; }
+      const meData = await meRes.json();
+      setUser(meData.user);
+      setSubmissions(meData.submissions ?? []);
+
       if (draftRes.ok) {
         const draftData = await draftRes.json();
         const d = draftData.data;
         if (d && (d.caseTitle || d.facts?.some((f: { fact: string }) => f.fact?.trim()) || d.name)) {
           setHasDraft(true);
         }
+      }
+
+      if (casesRes.ok) {
+        const casesData = await casesRes.json();
+        setCases(casesData.cases ?? []);
       }
     } catch {
       // ignore
@@ -92,10 +115,51 @@ export default function AccountPage() {
     }
   }, [router]);
 
+  async function handleAddCase(e: React.FormEvent) {
+    e.preventDefault();
+    setCaseError("");
+    if (!newCaseTitle.trim() || !newCaseText.trim()) {
+      setCaseError("Заполни название и текст задания");
+      return;
+    }
+    setAddingCase(true);
+    try {
+      const res = await fetch("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user!.id, title: newCaseTitle.trim(), task_text: newCaseText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCaseError(data.error || "Ошибка"); return; }
+      setCases((prev) => [data.case, ...prev]);
+      setNewCaseTitle("");
+      setNewCaseText("");
+      setShowAddCase(false);
+    } catch {
+      setCaseError("Ошибка соединения");
+    } finally {
+      setAddingCase(false);
+    }
+  }
+
+  async function handleDeleteCase(caseId: string) {
+    if (!confirm("Удалить кейс?")) return;
+    try {
+      await fetch("/api/cases", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ case_id: caseId, user_id: user!.id }),
+      });
+      setCases((prev) => prev.filter((c) => c.id !== caseId));
+    } catch { /* ignore */ }
+  }
+
   function handleLogout() {
     localStorage.removeItem("user_auth");
     router.push("/auth");
   }
+
+  const inputClass = "w-full rounded-xl border border-gray2 bg-white px-4 py-3 text-sm outline-none focus:border-orange focus:ring-2 focus:ring-orange/20 transition-all";
 
   if (loading) {
     return (
@@ -160,7 +224,97 @@ export default function AccountPage() {
           {hasDraft ? "Продолжить кейс" : "Заполнить новый кейс"}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </Link>
+        <button
+          onClick={() => setShowAddCase(!showAddCase)}
+          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold border-2 transition-all ${showAddCase ? 'border-orange text-orange bg-orange-pale' : 'border-dark text-dark hover:border-orange hover:text-orange hover:bg-orange-pale'}`}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Добавить кейс
+        </button>
       </div>
+
+      {/* Add case form */}
+      {showAddCase && (
+        <form onSubmit={handleAddCase} className="bg-gray rounded-xl border border-gray2 p-5 sm:p-6 mb-8 space-y-4">
+          <h3 className="text-sm font-extrabold">Загрузить условие задания</h3>
+          <p className="text-xs text-muted -mt-2">Загрузи текст своего кейса — при проверке будет оцениваться соответствие решения заданию</p>
+
+          <label className="block">
+            <span className="text-xs font-bold text-dark mb-1.5 block">Название кейса <span className="text-orange">*</span></span>
+            <input
+              type="text"
+              value={newCaseTitle}
+              onChange={(e) => setNewCaseTitle(e.target.value)}
+              placeholder="Например: Экологический проект для города"
+              className={inputClass}
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-bold text-dark mb-1.5 block">Текст задания <span className="text-orange">*</span></span>
+            <textarea
+              value={newCaseText}
+              onChange={(e) => setNewCaseText(e.target.value)}
+              placeholder="Вставь полный текст условия задания (кейса) из Большой перемены..."
+              rows={8}
+              className={`${inputClass} resize-y bg-gray`}
+            />
+          </label>
+
+          {caseError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+              <p className="text-sm text-red-600 font-medium">{caseError}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={addingCase}
+              className="bg-orange text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-light transition-all disabled:opacity-50"
+            >
+              {addingCase ? "Сохранение..." : "Сохранить кейс"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowAddCase(false); setCaseError(""); }}
+              className="text-sm font-bold text-muted hover:text-dark transition-colors"
+            >
+              Отмена
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* My cases */}
+      {cases.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg sm:text-xl font-black tracking-tight mb-4">
+            Мои кейсы
+            <span className="text-muted font-bold ml-2 text-base">({cases.length})</span>
+          </h2>
+          <div className="space-y-3">
+            {cases.map((c) => (
+              <div key={c.id} className="bg-white border border-gray2 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-dark">{c.title}</p>
+                    <p className="text-xs text-muted mt-0.5">{formatDate(c.created_at)}</p>
+                    <p className="text-xs text-dark mt-2 line-clamp-3 leading-relaxed">{c.task_text}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteCase(c.id)}
+                    className="shrink-0 w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
+                    title="Удалить кейс"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Submissions history */}
       <div>

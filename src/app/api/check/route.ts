@@ -28,6 +28,10 @@ import {
   getUserPrompt as crossValidationUser,
 } from '@/lib/prompts/cross-validation'
 import {
+  getSystemPrompt as taskComplianceSystem,
+  getUserPrompt as taskComplianceUser,
+} from '@/lib/prompts/task-compliance'
+import {
   VALID_SCORES,
   VALID_CROSS_SCORES,
   calculateGrade,
@@ -382,6 +386,63 @@ export async function POST(request: NextRequest) {
       console.error('Error in cross-validation:', crossError)
     }
 
+    // Task compliance: оценка соответствия условию задания (если есть case_id)
+    if (submission.case_id) {
+      try {
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('task_text')
+          .eq('id', submission.case_id)
+          .single()
+
+        if (caseData?.task_text) {
+          const tcSystemPrompt = taskComplianceSystem()
+          const tcUserPrompt = taskComplianceUser(caseData.task_text, {
+            analytics: submission.section_analytics || '',
+            idea: submission.section_idea || '',
+            steps: submission.section_steps || '',
+            budget: submission.section_budget || '',
+            presentation: presentationText || submission.pptx_parsed_text || '',
+          })
+
+          const tcResult1 = await evaluateSection(tcSystemPrompt, tcUserPrompt, VALID_CROSS_SCORES)
+          run1Scores.task_compliance = tcResult1.score
+
+          await supabase.from('scores').insert({
+            submission_id: submissionId,
+            section: 'task_compliance',
+            run_number: 1,
+            score: tcResult1.score,
+            reasoning: tcResult1.reasoning,
+            strengths: tcResult1.strengths,
+            weaknesses: tcResult1.weaknesses,
+            criteria_details: tcResult1,
+          })
+
+          const tcResult2 = await evaluateSection(tcSystemPrompt, tcUserPrompt, VALID_CROSS_SCORES)
+
+          if (tcResult1.score !== tcResult2.score) {
+            needsReview = true
+          }
+
+          await supabase.from('scores').insert({
+            submission_id: submissionId,
+            section: 'task_compliance',
+            run_number: 2,
+            score: tcResult2.score,
+            reasoning: tcResult2.reasoning,
+            strengths: tcResult2.strengths,
+            weaknesses: tcResult2.weaknesses,
+            criteria_details: tcResult2,
+          })
+
+          successCount++
+        }
+      } catch (tcError) {
+        console.error('Error in task compliance:', tcError)
+      }
+    }
+
     // If everything failed, mark as error
     if (successCount === 0) {
       await supabase
@@ -395,8 +456,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate total score (без кросс-валидации — только 5 основных разделов)
-    const { cross_validation: _cv, ...mainScores } = run1Scores
+    // Calculate total score (без кросс-валидации и task_compliance — только 5 основных разделов)
+    const { cross_validation: _cv, task_compliance: _tc, ...mainScores } = run1Scores
     const totalScore = Object.values(mainScores).reduce(
       (sum, score) => sum + (score ?? 0),
       0

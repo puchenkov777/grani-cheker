@@ -258,8 +258,10 @@ export default function SubmitPage() {
   const DRAFT_KEY = "grani_draft";
   const [userId, setUserId] = useState<string | null>(null);
   const [cloudSynced, setCloudSynced] = useState(false);
+  const [userCases, setUserCases] = useState<Array<{id: string, title: string, task_text: string}>>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState<string>("");
 
-  // Check if user is logged in
+  // Check if user is logged in + load cases
   useEffect(() => {
     try {
       const raw = localStorage.getItem("user_auth");
@@ -269,6 +271,11 @@ export default function SubmitPage() {
           setUserId(parsed.id);
           if (parsed.name) setName(parsed.name);
           if (parsed.mentor) setMentor(parsed.mentor);
+          // Load user's cases
+          fetch(`/api/cases?user_id=${parsed.id}`)
+            .then(r => r.json())
+            .then(d => setUserCases(d.cases ?? []))
+            .catch(() => {});
         }
       }
     } catch { /* ignore */ }
@@ -716,6 +723,7 @@ export default function SubmitPage() {
       formData.append("challenge", challenge);
       formData.append("case_title", caseTitle.trim());
       if (userId) formData.append("user_id", userId);
+      if (selectedCaseId) formData.append("case_id", selectedCaseId);
 
       formData.append(
         "section_analytics",
@@ -1477,6 +1485,26 @@ export default function SubmitPage() {
               className={inputClass}
             />
           </label>
+
+          {/* Case selection - only for logged in users with cases */}
+          {userId && userCases.length > 0 && (
+            <label className="block">
+              <span className="text-xs font-bold text-dark mb-1.5 block">
+                Условие задания
+              </span>
+              <select
+                value={selectedCaseId}
+                onChange={(e) => setSelectedCaseId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Без привязки к кейсу</option>
+                {userCases.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted mt-1">Привяжи работу к загруженному кейсу — будет оценено соответствие заданию</p>
+            </label>
+          )}
         </div>
       </div>
 
