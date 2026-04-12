@@ -354,6 +354,16 @@ export default function SubmitPage() {
     setFacts((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
   }, []);
 
+  const moveFact = useCallback((index: number, direction: 'up' | 'down') => {
+    setFacts((prev) => {
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }, []);
+
   const updateIdeaField = useCallback(
     (field: keyof IdeaFields, value: string) => {
       setIdeaFields((prev) => ({ ...prev, [field]: value }));
@@ -416,11 +426,11 @@ export default function SubmitPage() {
   /* ---------------------------------------------------------------- */
   /*  Drag-and-drop state                                              */
   /* ---------------------------------------------------------------- */
-  const [dragType, setDragType] = useState<'step' | 'resource' | null>(null);
+  const [dragType, setDragType] = useState<'fact' | 'step' | 'resource' | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
-  const handleDragStart = useCallback((type: 'step' | 'resource', idx: number) => {
+  const handleDragStart = useCallback((type: 'fact' | 'step' | 'resource', idx: number) => {
     setDragType(type);
     setDragIdx(idx);
   }, []);
@@ -440,6 +450,17 @@ export default function SubmitPage() {
   const handleDropStep = useCallback((targetIdx: number) => {
     if (dragIdx === null || dragIdx === targetIdx) { handleDragEnd(); return; }
     setSteps((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(dragIdx, 1);
+      next.splice(targetIdx, 0, removed);
+      return next;
+    });
+    handleDragEnd();
+  }, [dragIdx, handleDragEnd]);
+
+  const handleDropFact = useCallback((targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) { handleDragEnd(); return; }
+    setFacts((prev) => {
       const next = [...prev];
       const [removed] = next.splice(dragIdx, 1);
       next.splice(targetIdx, 0, removed);
@@ -688,24 +709,61 @@ export default function SubmitPage() {
         {facts.map((fact, idx) => (
           <div
             key={idx}
-            className="relative bg-white border border-gray2 rounded-xl p-5"
+            draggable
+            onDragStart={() => handleDragStart('fact', idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragEnd={handleDragEnd}
+            onDrop={() => handleDropFact(idx)}
+            className={`relative bg-white border border-gray2 rounded-xl p-5 transition-all ${
+              dragType === 'fact' && dragIdx === idx ? 'opacity-40 scale-[0.98]' : ''
+            } ${
+              dragType === 'fact' && dragOverIdx === idx && dragIdx !== idx ? 'border-orange border-2 shadow-lg' : ''
+            }`}
           >
             {/* Index badge */}
             <div className="absolute -top-3 left-4 bg-orange text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
               Факт {idx + 1}
             </div>
+            <div
+              className="absolute top-3 left-3 cursor-grab active:cursor-grabbing text-muted/40 hover:text-orange transition-colors select-none"
+              title="Перетащи для перемещения"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+            </div>
 
-            {/* Remove button */}
-            {facts.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeFact(idx)}
-                className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
-                title="Удалить факт"
-              >
-                ✕
-              </button>
-            )}
+            {/* Move & Remove buttons */}
+            <div className="absolute top-3 right-3 flex items-center gap-1">
+              {idx > 0 && (
+                <button
+                  type="button"
+                  onClick={() => moveFact(idx, 'up')}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-orange-pale flex items-center justify-center text-muted hover:text-orange transition-colors text-xs font-bold"
+                  title="Переместить вверх"
+                >
+                  ↑
+                </button>
+              )}
+              {idx < facts.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => moveFact(idx, 'down')}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-orange-pale flex items-center justify-center text-muted hover:text-orange transition-colors text-xs font-bold"
+                  title="Переместить вниз"
+                >
+                  ↓
+                </button>
+              )}
+              {facts.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeFact(idx)}
+                  className="w-7 h-7 rounded-full bg-gray hover:bg-red-50 flex items-center justify-center text-muted hover:text-red-500 transition-colors text-sm font-bold"
+                  title="Удалить факт"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
             <div className="space-y-3 mt-2">
               {/* Факт */}
