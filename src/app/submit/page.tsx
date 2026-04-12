@@ -241,6 +241,7 @@ export default function SubmitPage() {
   /* ---------- Section 5: Presentation ---------- */
   const [pptxFile, setPptxFile] = useState<File | null>(null);
   const pptxFileRef = useRef<HTMLInputElement>(null);
+  const [pptxComment, setPptxComment] = useState("");
 
   /* ---------- Wizard state ---------- */
   const [currentStep, setCurrentStep] = useState(0);
@@ -270,6 +271,7 @@ export default function SubmitPage() {
       if (d.ideaFileDesc) setIdeaFileDesc(d.ideaFileDesc);
       if (d.steps?.length) setSteps(d.steps);
       if (d.stepsFileDesc) setStepsFileDesc(d.stepsFileDesc);
+      if (d.pptxComment) setPptxComment(d.pptxComment);
       if (d.resources?.length) setResources(d.resources);
       if (d.currentStep !== undefined) setCurrentStep(d.currentStep);
     } catch {
@@ -286,14 +288,14 @@ export default function SubmitPage() {
         facts, generalConclusion,
         ideaFields, ideaFileDesc,
         steps, stepsFileDesc,
-        resources,
+        resources, pptxComment,
         currentStep,
         savedAt: Date.now(),
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     }, 5000);
     return () => clearInterval(timer);
-  }, [name, mentor, caseTitle, facts, generalConclusion, ideaFields, ideaFileDesc, steps, stepsFileDesc, resources, currentStep, submitted]);
+  }, [name, mentor, caseTitle, facts, generalConclusion, ideaFields, ideaFileDesc, steps, stepsFileDesc, resources, pptxComment, currentStep, submitted]);
 
   function saveDraftManual() {
     const draft = {
@@ -301,7 +303,7 @@ export default function SubmitPage() {
       facts, generalConclusion,
       ideaFields, ideaFileDesc,
       steps, stepsFileDesc,
-      resources,
+      resources, pptxComment,
       currentStep,
       savedAt: Date.now(),
     };
@@ -548,6 +550,7 @@ export default function SubmitPage() {
       formData.append("section_budget", JSON.stringify(resources));
 
       if (pptxFile) formData.append("pptx_file", pptxFile);
+      if (pptxComment.trim()) formData.append("pptx_comment", pptxComment.trim());
       if (ideaFile) formData.append("idea_attachment", ideaFile);
       if (ideaFileDesc.trim()) formData.append("idea_file_description", ideaFileDesc.trim());
       if (stepsFile) formData.append("steps_attachment", stepsFile);
@@ -1054,14 +1057,30 @@ export default function SubmitPage() {
 
   function renderPresentation() {
     return (
-      <FileUploadZone
-        file={pptxFile}
-        onFile={handlePptxFile}
-        accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        label="Перетащи файл сюда или нажми для выбора"
-        hint="Только файлы .pptx (PowerPoint)"
-        inputRef={pptxFileRef}
-      />
+      <div className="space-y-4">
+        <FileUploadZone
+          file={pptxFile}
+          onFile={handlePptxFile}
+          accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          label="Перетащи файл сюда или нажми для выбора"
+          hint="Только файлы .pptx (PowerPoint)"
+          inputRef={pptxFileRef}
+        />
+        <div>
+          <label className="text-xs font-bold text-dark mb-1.5 block">
+            Комментарий к презентации{" "}
+            <span className="text-muted font-normal">(необязательно)</span>
+          </label>
+          <textarea
+            value={pptxComment}
+            onChange={(e) => setPptxComment(e.target.value.slice(0, 700))}
+            placeholder="Опиши кратко что в презентации: какие разделы кейса отражены, есть ли графики, таблицы, схемы..."
+            rows={4}
+            className={textareaClass}
+          />
+          <CharCounter current={pptxComment.length} max={700} />
+        </div>
+      </div>
     );
   }
 

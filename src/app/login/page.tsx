@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const MENTORS: Record<string, string> = {
-  victor: "Gr4n1_V1ct0r!2026",
-  vlad: "Gr4n1_Vl4d!2026",
+const USERS: Record<string, { password: string; role: 'mentor' | 'admin'; displayName: string }> = {
+  victor: { password: "Gr4n1_V1ct0r!2026", role: "mentor", displayName: "Виктор" },
+  vlad: { password: "Gr4n1_Vl4d!2026", role: "mentor", displayName: "Влад" },
+  admin: { password: "Grani2026Admin!", role: "admin", displayName: "Администратор" },
 };
 
 export default function LoginPage() {
@@ -19,10 +20,19 @@ export default function LoginPage() {
     setError("");
 
     const key = login.toLowerCase().trim();
-    if (MENTORS[key] && MENTORS[key] === password) {
-      // Save to localStorage
-      localStorage.setItem("mentor_auth", JSON.stringify({ name: key, ts: Date.now() }));
-      router.push("/dashboard");
+    const user = USERS[key];
+    if (user && user.password === password) {
+      localStorage.setItem("mentor_auth", JSON.stringify({
+        name: key,
+        role: user.role,
+        displayName: user.displayName,
+        ts: Date.now(),
+      }));
+      if (user.role === 'admin') {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     } else {
       setError("Неверный логин или пароль");
     }
@@ -34,8 +44,8 @@ export default function LoginPage() {
         <div className="w-16 h-16 rounded-full bg-orange-pale flex items-center justify-center text-3xl mx-auto mb-4">
           🔐
         </div>
-        <h1 className="text-2xl font-black tracking-tight">Вход для менторов</h1>
-        <p className="text-sm text-muted mt-2">Дашборд доступен только для менторов Платформы Грани</p>
+        <h1 className="text-2xl font-black tracking-tight">Вход</h1>
+        <p className="text-sm text-muted mt-2">Дашборд доступен для менторов и администраторов Платформы Грани</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -45,7 +55,7 @@ export default function LoginPage() {
             type="text"
             value={login}
             onChange={(e) => setLogin(e.target.value)}
-            placeholder="victor или vlad"
+            placeholder="Логин"
             className="w-full rounded-xl border border-gray2 bg-white px-4 py-3 text-sm outline-none focus:border-orange focus:ring-2 focus:ring-orange/20 transition-all"
           />
         </label>

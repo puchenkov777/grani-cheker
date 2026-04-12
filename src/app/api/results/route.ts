@@ -55,6 +55,7 @@ export async function GET() {
     participant_name: sub.participants?.name ?? null,
     participant_email: sub.participants?.email ?? null,
     team_name: sub.participants?.team_name ?? null,
+    mentor: sub.participants?.mentor ?? null,
     total: sub.total_scores?.total ?? null,
     grade: sub.total_scores?.grade ?? null,
     needs_review: sub.total_scores?.needs_review ?? false,

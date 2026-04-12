@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     const stepsAttachment = formData.get('steps_attachment') as File | null
     const ideaFileDescription = formData.get('idea_file_description') as string | null
     const stepsFileDescription = formData.get('steps_file_description') as string | null
+    const pptxComment = formData.get('pptx_comment') as string | null
 
     // Validate required fields
     if (!name || !caseTitle) {
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
         steps_attachment_path: stepsFilePath,
         idea_file_description: ideaFileDescription || null,
         steps_file_description: stepsFileDescription || null,
+        pptx_comment: pptxComment || null,
         status: 'pending',
       })
       .select('id')

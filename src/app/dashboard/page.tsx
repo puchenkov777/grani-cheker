@@ -12,6 +12,7 @@ interface Submission {
   participant_name: string | null
   participant_email: string | null
   team_name: string | null
+  mentor: string | null
   total: number | null
   grade: string | null
   needs_review: boolean
@@ -71,13 +72,14 @@ function formatDate(dateStr: string): string {
 function exportCSV(submissions: Submission[]) {
   const header = [
     'Имя',
-    'Команда',
+    'Ментор',
     'Кейс',
     'Аналитика',
     'Идея',
     'Шаги',
     'Бюджет',
-    'Презентация',
+    'Покажи что получилось',
+    'Связанность',
     'Итого',
     'Статус',
     'Дата',
@@ -86,13 +88,14 @@ function exportCSV(submissions: Submission[]) {
   const rows = submissions.map((s) => {
     const cols = [
       `"${(s.participant_name ?? '').replace(/"/g, '""')}"`,
-      `"${(s.team_name ?? '').replace(/"/g, '""')}"`,
+      `"${(s.mentor ?? '').replace(/"/g, '""')}"`,
       `"${(s.case_title ?? '').replace(/"/g, '""')}"`,
       s.scores.analytics ?? '',
       s.scores.idea ?? '',
       s.scores.steps ?? '',
       s.scores.budget ?? '',
       s.scores.presentation ?? '',
+      s.scores.cross_validation ?? '',
       s.total ?? '',
       STATUS_LABELS[s.status] ?? s.status,
       s.created_at ? formatDate(s.created_at) : '',
@@ -120,6 +123,8 @@ export default function DashboardPage() {
   const [sortAsc, setSortAsc] = useState(false)
   const [search, setSearch] = useState('')
   const [authed, setAuthed] = useState(false)
+  const [mentorName, setMentorName] = useState('')
+  const [mentorDisplayName, setMentorDisplayName] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDetail, setSelectedDetail] = useState<Submission | null>(null)
   const [detailScores, setDetailScores] = useState<Array<{section: string, score: number, reasoning: string, strengths: string[], weaknesses: string[]}>>([])
@@ -135,8 +140,13 @@ export default function DashboardPage() {
     }
     try {
       const parsed = JSON.parse(auth)
-      if (parsed.name && parsed.ts) {
+      if (parsed.name && parsed.ts && parsed.role !== 'admin') {
+        setMentorName(parsed.name)
+        setMentorDisplayName(parsed.displayName || parsed.name)
         setAuthed(true)
+      } else if (parsed.role === 'admin') {
+        // Admin should use /admin
+        router.push('/admin')
       } else {
         router.push('/login')
       }
@@ -152,7 +162,13 @@ export default function DashboardPage() {
         const res = await fetch('/api/results')
         if (!res.ok) throw new Error('Ошибка загрузки')
         const json = await res.json()
-        setSubmissions(json.data ?? [])
+        // Filter by mentor name (match mentor field from participants)
+        const mentorMap: Record<string, string> = { victor: 'Виктор', vlad: 'Влад' }
+        const displayMentor = mentorMap[mentorName] || mentorName
+        const filtered = (json.data ?? []).filter((s: Submission) =>
+          s.mentor === displayMentor || s.mentor === mentorName
+        )
+        setSubmissions(filtered)
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Неизвестная ошибка')
       } finally {
@@ -160,7 +176,7 @@ export default function DashboardPage() {
       }
     }
     fetchData()
-  }, [authed])
+  }, [authed, mentorName])
 
   // Download file from Supabase Storage
   const handleDownloadFile = useCallback(async (filePath: string, label: string) => {
@@ -360,7 +376,7 @@ export default function DashboardPage() {
     filtered = filtered.filter(
       (s) =>
         (s.participant_name ?? '').toLowerCase().includes(q) ||
-        (s.team_name ?? '').toLowerCase().includes(q)
+        (s.case_title ?? '').toLowerCase().includes(q)
     )
   }
 
@@ -403,14 +419,22 @@ export default function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       {/* Header */}
-      <div className="mb-8">
-        <div className="inline-flex items-center gap-2 bg-orange-pale border border-orange/30 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase text-orange mb-5">
-          <span className="w-1.5 h-1.5 rounded-full bg-orange animate-pulse" />
-          Дашборд куратора
+      <div className="mb-8 flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 bg-orange-pale border border-orange/30 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase text-orange mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange animate-pulse" />
+            Дашборд ментора
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+            Работы для <span className="text-orange">{mentorDisplayName}</span>
+          </h1>
         </div>
-        <h1 className="text-3xl md:text-4xl font-black tracking-tight">
-          Все <span className="text-orange">работы</span>
-        </h1>
+        <button
+          onClick={() => { localStorage.removeItem('mentor_auth'); router.push('/login'); }}
+          className="text-xs font-bold text-muted hover:text-orange transition-colors"
+        >
+          Выйти
+        </button>
       </div>
 
       {/* Stats */}
@@ -450,7 +474,7 @@ export default function DashboardPage() {
           </svg>
           <input
             type="text"
-            placeholder="Поиск по имени или команде…"
+            placeholder="Поиск по имени или кейсу…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray2 bg-white text-sm font-medium text-dark placeholder:text-muted/60 focus:outline-none focus:border-orange focus:ring-1 focus:ring-orange/30 transition-colors"
@@ -537,7 +561,7 @@ export default function DashboardPage() {
                     Имя
                   </th>
                   <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
-                    Команда
+                    Ментор
                   </th>
                   <th className="text-left px-4 py-3 font-extrabold text-dark text-xs uppercase tracking-wider">
                     Кейс
@@ -571,7 +595,7 @@ export default function DashboardPage() {
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={12}
                       className="text-center py-16 text-muted text-sm font-medium"
                     >
                       Нет работ
@@ -589,8 +613,8 @@ export default function DashboardPage() {
                     <td className="px-4 py-3 font-semibold text-dark whitespace-nowrap max-w-[180px] truncate">
                       {sub.participant_name ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-muted whitespace-nowrap max-w-[140px] truncate">
-                      {sub.team_name ?? '—'}
+                    <td className="px-4 py-3 text-xs font-bold text-orange whitespace-nowrap">
+                      {sub.mentor ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-dark whitespace-nowrap max-w-[160px] truncate">
                       {sub.case_title}
@@ -649,7 +673,7 @@ export default function DashboardPage() {
                 {selectedDetail.participant_name ?? '—'}
               </h3>
               <p className="text-xs text-muted mt-0.5">
-                Кейс: {selectedDetail.case_title} &middot; Итого: <span className="font-bold text-dark">{selectedDetail.total ?? '—'}/200</span>
+                Ментор: <span className="font-bold text-orange">{selectedDetail.mentor ?? '—'}</span> &middot; Кейс: {selectedDetail.case_title} &middot; Итого: <span className="font-bold text-dark">{selectedDetail.total ?? '—'}/200</span>
               </p>
             </div>
             <div className="flex items-center gap-3">

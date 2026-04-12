@@ -279,7 +279,12 @@ export async function POST(request: NextRequest) {
 
     // Process presentation section
     try {
-      const presText = presentationText || submission.pptx_parsed_text || ''
+      let presText = presentationText || submission.pptx_parsed_text || ''
+
+      // Append user comment about the presentation
+      if (submission.pptx_comment) {
+        presText = presText + `\n\n--- КОММЕНТАРИЙ УЧАСТНИКА К ПРЕЗЕНТАЦИИ ---\n${submission.pptx_comment}`
+      }
 
       if (presText) {
         const systemPrompt = presentationSystem()
