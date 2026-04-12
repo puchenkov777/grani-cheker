@@ -42,6 +42,9 @@ export default function RootLayout({
               <a href="/login" className="hidden sm:block text-xs font-semibold tracking-wide hover:text-orange transition-colors">
                 Для менторов
               </a>
+              <a href="/account" className="hidden sm:block text-xs font-semibold tracking-wide hover:text-orange transition-colors">
+                Мой кабинет
+              </a>
               <a
                 href="/submit"
                 className="bg-orange text-white px-4 sm:px-5 py-2 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-orange-light transition-colors"

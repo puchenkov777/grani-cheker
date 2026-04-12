@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     const ideaFileDescription = formData.get('idea_file_description') as string | null
     const stepsFileDescription = formData.get('steps_file_description') as string | null
     const pptxComment = formData.get('pptx_comment') as string | null
+    const userIdRaw = formData.get('user_id') as string | null
 
     // Validate required fields
     if (!name || !caseTitle) {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     // Create participant (use name as unique key, no email)
     const { data: participant, error: participantError } = await supabase
       .from('participants')
-      .insert({ name, mentor: mentor || null })
+      .insert({ name, mentor: mentor || null, user_id: userIdRaw || null })
       .select('id')
       .single()
 
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
         idea_file_description: ideaFileDescription || null,
         steps_file_description: stepsFileDescription || null,
         pptx_comment: pptxComment || null,
+        user_id: userIdRaw || null,
         status: 'pending',
       })
       .select('id')

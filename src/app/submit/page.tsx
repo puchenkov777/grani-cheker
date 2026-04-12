@@ -255,50 +255,77 @@ export default function SubmitPage() {
   /* ---------------------------------------------------------------- */
 
   const DRAFT_KEY = "grani_draft";
+  const [userId, setUserId] = useState<string | null>(null);
+  const [cloudSynced, setCloudSynced] = useState(false);
 
-  // Load draft on mount
+  // Check if user is logged in
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      if (d.name) setName(d.name);
-      if (d.mentor) setMentor(d.mentor);
-      if (d.caseTitle) setCaseTitle(d.caseTitle);
-      if (d.facts?.length) setFacts(d.facts);
-      if (d.generalConclusion) setGeneralConclusion(d.generalConclusion);
-      if (d.ideaFields) setIdeaFields(d.ideaFields);
-      if (d.ideaFileDesc) setIdeaFileDesc(d.ideaFileDesc);
-      if (d.steps?.length) setSteps(d.steps);
-      if (d.stepsFileDesc) setStepsFileDesc(d.stepsFileDesc);
-      if (d.pptxComment) setPptxComment(d.pptxComment);
-      if (d.resources?.length) setResources(d.resources);
-      if (d.currentStep !== undefined) setCurrentStep(d.currentStep);
-    } catch {
-      // corrupt draft, ignore
-    }
+      const raw = localStorage.getItem("user_auth");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.id) {
+          setUserId(parsed.id);
+          if (parsed.name) setName(parsed.name);
+          if (parsed.mentor) setMentor(parsed.mentor);
+        }
+      }
+    } catch { /* ignore */ }
   }, []);
 
-  // Auto-save draft every 5 seconds
+  // Load draft — from cloud first (if logged in), fallback to localStorage
   useEffect(() => {
-    if (submitted) return;
-    const timer = setInterval(() => {
-      const draft = {
-        name, mentor, caseTitle,
-        facts, generalConclusion,
-        ideaFields, ideaFileDesc,
-        steps, stepsFileDesc,
-        resources, pptxComment,
-        currentStep,
-        savedAt: Date.now(),
-      };
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [name, mentor, caseTitle, facts, generalConclusion, ideaFields, ideaFileDesc, steps, stepsFileDesc, resources, pptxComment, currentStep, submitted]);
+    async function loadDraft() {
+      let loaded = false;
 
-  function saveDraftManual() {
-    const draft = {
+      // Try cloud draft first
+      if (userId) {
+        try {
+          const res = await fetch(`/api/drafts?user_id=${userId}`);
+          if (res.ok) {
+            const { data: d } = await res.json();
+            if (d && (d.caseTitle || d.name || d.facts?.some((f: Fact) => f.fact?.trim()))) {
+              applyDraft(d);
+              loaded = true;
+              setCloudSynced(true);
+            }
+          }
+        } catch { /* fallback to local */ }
+      }
+
+      // Fallback to localStorage
+      if (!loaded) {
+        try {
+          const raw = localStorage.getItem(DRAFT_KEY);
+          if (!raw) return;
+          const d = JSON.parse(raw);
+          applyDraft(d);
+        } catch { /* corrupt draft */ }
+      }
+    }
+
+    function applyDraft(d: Record<string, unknown>) {
+      if (d.name && !userId) setName(d.name as string);
+      if (d.mentor && !userId) setMentor(d.mentor as string);
+      if (d.caseTitle) setCaseTitle(d.caseTitle as string);
+      if ((d.facts as Fact[])?.length) setFacts(d.facts as Fact[]);
+      if (d.generalConclusion) setGeneralConclusion(d.generalConclusion as string);
+      if (d.ideaFields) setIdeaFields(d.ideaFields as IdeaFields);
+      if (d.ideaFileDesc) setIdeaFileDesc(d.ideaFileDesc as string);
+      if ((d.steps as Step[])?.length) setSteps(d.steps as Step[]);
+      if (d.stepsFileDesc) setStepsFileDesc(d.stepsFileDesc as string);
+      if (d.pptxComment) setPptxComment(d.pptxComment as string);
+      if ((d.resources as Resource[])?.length) setResources(d.resources as Resource[]);
+      if (d.currentStep !== undefined) setCurrentStep(d.currentStep as number);
+    }
+
+    loadDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Build draft object
+  function buildDraft() {
+    return {
       name, mentor, caseTitle,
       facts, generalConclusion,
       ideaFields, ideaFileDesc,
@@ -307,13 +334,54 @@ export default function SubmitPage() {
       currentStep,
       savedAt: Date.now(),
     };
+  }
+
+  // Auto-save draft every 5 seconds (localStorage + cloud)
+  useEffect(() => {
+    if (submitted) return;
+    const timer = setInterval(() => {
+      const draft = buildDraft();
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+
+      // Cloud sync (fire and forget)
+      if (userId) {
+        fetch("/api/drafts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, data: draft }),
+        }).then(() => setCloudSynced(true)).catch(() => {});
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [name, mentor, caseTitle, facts, generalConclusion, ideaFields, ideaFileDesc, steps, stepsFileDesc, resources, pptxComment, currentStep, submitted, userId]);
+
+  function saveDraftManual() {
+    const draft = buildDraft();
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+
+    // Cloud sync
+    if (userId) {
+      fetch("/api/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, data: draft }),
+      }).then(() => setCloudSynced(true)).catch(() => {});
+    }
+
     setDraftSaved(true);
     setTimeout(() => setDraftSaved(false), 2000);
   }
 
   function clearDraft() {
     localStorage.removeItem(DRAFT_KEY);
+    // Clear cloud draft too
+    if (userId) {
+      fetch("/api/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, data: {} }),
+      }).catch(() => {});
+    }
   }
 
   async function handleExportDocx() {
@@ -627,6 +695,7 @@ export default function SubmitPage() {
       formData.append("name", name.trim());
       formData.append("mentor", mentor);
       formData.append("case_title", caseTitle.trim());
+      if (userId) formData.append("user_id", userId);
 
       formData.append(
         "section_analytics",
@@ -1321,6 +1390,27 @@ export default function SubmitPage() {
         </p>
       </div>
 
+      {/* ---------- Auth banner ---------- */}
+      {!userId && (
+        <div className="bg-orange-pale border border-orange/30 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-dark">Войди или зарегистрируйся</p>
+            <p className="text-xs text-muted mt-0.5">Черновик будет доступен с любого устройства</p>
+          </div>
+          <a href="/auth" className="inline-flex items-center gap-1.5 bg-orange text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-light transition-colors shrink-0">
+            Войти / Регистрация
+          </a>
+        </div>
+      )}
+      {userId && (
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-xs text-muted">
+            {cloudSynced ? '☁️ Синхронизировано' : '💾 Сохранение...'}
+          </span>
+          <a href="/account" className="text-xs font-bold text-orange hover:underline">Мой кабинет</a>
+        </div>
+      )}
+
       {/* ---------- Participant info card ---------- */}
       <div className="bg-gray rounded-2xl border border-gray2 p-6 md:p-8 mb-8">
         <h2 className="text-base font-extrabold mb-5 flex items-center gap-2">
@@ -1338,6 +1428,7 @@ export default function SubmitPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Иванов Иван"
               className={inputClass}
+              disabled={!!userId}
             />
           </label>
 
@@ -1349,6 +1440,7 @@ export default function SubmitPage() {
               value={mentor}
               onChange={(e) => setMentor(e.target.value)}
               className={inputClass}
+              disabled={!!userId}
             >
               <option value="">Выбери ментора</option>
               <option value="Виктор">Виктор</option>
