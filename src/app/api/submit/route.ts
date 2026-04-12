@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+let fileCounter = 0
+
 async function uploadFile(
   participantId: string,
   file: File,
@@ -8,12 +10,16 @@ async function uploadFile(
 ): Promise<string | null> {
   if (!file || file.size === 0) return null
 
+  fileCounter++
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
-  const safeName = `${participantId}/${Date.now()}_${prefix}.${ext}`
+  const safeName = `${participantId}/${fileCounter}_${prefix}.${ext}`
+
+  // Create a new File/Blob with ASCII-safe name to avoid Supabase issues with cyrillic filenames
+  const safeFile = new File([file], `${fileCounter}_${prefix}.${ext}`, { type: file.type })
 
   const { error } = await supabase.storage
     .from('submissions')
-    .upload(safeName, file, {
+    .upload(safeName, safeFile, {
       contentType: file.type,
       upsert: true,
     })
@@ -27,6 +33,7 @@ async function uploadFile(
 }
 
 export async function POST(request: NextRequest) {
+  fileCounter = 0 // reset per request
   try {
     const formData = await request.formData()
 
