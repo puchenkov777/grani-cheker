@@ -38,6 +38,7 @@ import {
   type SectionKey,
   type ScoreResult,
 } from '@/lib/scoring'
+import { ACTIONABLE_FEEDBACK_PROMPT, INDEPENDENT_REVIEW_PROMPT, parseScoreResult } from '@/lib/evaluation-feedback'
 
 interface SectionConfig {
   key: SectionKey
@@ -76,7 +77,8 @@ const TEXT_SECTIONS: SectionConfig[] = [
 async function evaluateSection(
   systemPrompt: string,
   userPrompt: string,
-  validScores: number[] = VALID_SCORES
+  validScores: number[] = VALID_SCORES,
+  participantText?: string
 ): Promise<ScoreResult> {
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -93,15 +95,7 @@ async function evaluateSection(
     throw new Error('Empty response from OpenAI')
   }
 
-  const parsed: ScoreResult = JSON.parse(content)
-
-  if (!validScores.includes(parsed.score)) {
-    throw new Error(
-      `Invalid score ${parsed.score}. Must be one of: ${validScores.join(', ')}`
-    )
-  }
-
-  return parsed
+  return parseScoreResult(content, validScores, participantText)
 }
 
 export async function POST(request: NextRequest) {
@@ -136,6 +130,19 @@ export async function POST(request: NextRequest) {
         `Failed to fetch submission: ${fetchError?.message ?? 'not found'}`
       )
     }
+
+    let caseTaskText = ''
+    if (submission.case_id) {
+      const { data: caseData, error: caseError } = await supabase
+        .from('cases')
+        .select('task_text')
+        .eq('id', submission.case_id)
+        .single()
+      if (caseError) console.warn('Failed to load case task:', caseError)
+      caseTaskText = caseData?.task_text || ''
+    }
+
+    const caseContext = `--- КОНТЕКСТ КЕЙСА ---\nНазвание: ${submission.case_title || 'Не указано'}\n${caseTaskText ? `Условие: ${caseTaskText}\n` : ''}--- КОНЕЦ КОНТЕКСТА ---\n\n`
 
     // Prepare presentation text if pptx exists
     let presentationText = ''
@@ -241,11 +248,11 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const systemPrompt = section.getSystemPrompt()
-        const userPrompt = section.getUserPrompt(text)
+        const systemPrompt = section.getSystemPrompt() + ACTIONABLE_FEEDBACK_PROMPT
+        const userPrompt = caseContext + section.getUserPrompt(text)
 
         // Run 1
-        const result1 = await evaluateSection(systemPrompt, userPrompt)
+        const result1 = await evaluateSection(systemPrompt, userPrompt, VALID_SCORES, text)
         run1Scores[section.key] = result1.score
 
         await supabase.from('scores').insert({
@@ -260,7 +267,7 @@ export async function POST(request: NextRequest) {
         })
 
         // Run 2
-        const result2 = await evaluateSection(systemPrompt, userPrompt)
+        const result2 = await evaluateSection(systemPrompt + INDEPENDENT_REVIEW_PROMPT, userPrompt, VALID_SCORES, text)
 
         if (result1.score !== result2.score) {
           needsReview = true
@@ -293,15 +300,15 @@ export async function POST(request: NextRequest) {
       }
 
       if (presText) {
-        const systemPrompt = presentationSystem()
-        const userPrompt = presentationUser({
+        const systemPrompt = presentationSystem() + ACTIONABLE_FEEDBACK_PROMPT
+        const userPrompt = caseContext + presentationUser({
           text: presText,
           slideCount: presentationSlideCount,
           hasImages: presentationHasImages,
         })
 
         // Run 1
-        const result1 = await evaluateSection(systemPrompt, userPrompt)
+        const result1 = await evaluateSection(systemPrompt, userPrompt, VALID_SCORES, presText)
         run1Scores.presentation = result1.score
 
         await supabase.from('scores').insert({
@@ -316,7 +323,7 @@ export async function POST(request: NextRequest) {
         })
 
         // Run 2
-        const result2 = await evaluateSection(systemPrompt, userPrompt)
+        const result2 = await evaluateSection(systemPrompt + INDEPENDENT_REVIEW_PROMPT, userPrompt, VALID_SCORES, presText)
 
         if (result1.score !== result2.score) {
           needsReview = true
@@ -364,7 +371,7 @@ export async function POST(request: NextRequest) {
         criteria_details: crossResult1,
       })
 
-      const crossResult2 = await evaluateSection(crossSystemPrompt, crossUserPrompt, VALID_CROSS_SCORES)
+      const crossResult2 = await evaluateSection(crossSystemPrompt + INDEPENDENT_REVIEW_PROMPT, crossUserPrompt, VALID_CROSS_SCORES)
 
       if (crossResult1.score !== crossResult2.score) {
         needsReview = true
@@ -389,15 +396,9 @@ export async function POST(request: NextRequest) {
     // Task compliance: оценка соответствия условию задания (если есть case_id)
     if (submission.case_id) {
       try {
-        const { data: caseData } = await supabase
-          .from('cases')
-          .select('task_text')
-          .eq('id', submission.case_id)
-          .single()
-
-        if (caseData?.task_text) {
+        if (caseTaskText) {
           const tcSystemPrompt = taskComplianceSystem()
-          const tcUserPrompt = taskComplianceUser(caseData.task_text, {
+          const tcUserPrompt = taskComplianceUser(caseTaskText, {
             analytics: submission.section_analytics || '',
             idea: submission.section_idea || '',
             steps: submission.section_steps || '',
@@ -419,7 +420,7 @@ export async function POST(request: NextRequest) {
             criteria_details: tcResult1,
           })
 
-          const tcResult2 = await evaluateSection(tcSystemPrompt, tcUserPrompt, VALID_CROSS_SCORES)
+          const tcResult2 = await evaluateSection(tcSystemPrompt + INDEPENDENT_REVIEW_PROMPT, tcUserPrompt, VALID_CROSS_SCORES)
 
           if (tcResult1.score !== tcResult2.score) {
             needsReview = true
@@ -457,11 +458,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate total score (без кросс-валидации и task_compliance — только 5 основных разделов)
-    const { cross_validation: _cv, task_compliance: _tc, ...mainScores } = run1Scores
-    const totalScore = Object.values(mainScores).reduce(
-      (sum, score) => sum + (score ?? 0),
-      0
-    )
+    const mainSections: SectionKey[] = ['analytics', 'idea', 'steps', 'budget', 'presentation']
+    const totalScore = mainSections.reduce((sum, section) => sum + (run1Scores[section] ?? 0), 0)
     const grade = calculateGrade(totalScore)
 
     // Save to total_scores

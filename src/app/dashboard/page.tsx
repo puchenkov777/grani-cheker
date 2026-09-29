@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { ScoreRecommendations } from '@/components/ScoreRecommendations'
 
 interface Submission {
   id: string
@@ -143,7 +144,7 @@ export default function DashboardPage() {
   const [mentorDisplayName, setMentorDisplayName] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDetail, setSelectedDetail] = useState<Submission | null>(null)
-  const [detailScores, setDetailScores] = useState<Array<{section: string, score: number, reasoning: string, strengths: string[], weaknesses: string[]}>>([])
+  const [detailScores, setDetailScores] = useState<Array<{section: string, score: number, reasoning: string, strengths: string[], weaknesses: string[], criteria_details: unknown}>>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [showCase, setShowCase] = useState(false)
 
@@ -220,7 +221,7 @@ export default function DashboardPage() {
     try {
       const { data } = await supabase
         .from('scores')
-        .select('section, score, reasoning, strengths, weaknesses')
+        .select('section, score, reasoning, strengths, weaknesses, criteria_details')
         .eq('submission_id', sub.id)
         .eq('run_number', 1)
         .order('section')
@@ -823,6 +824,7 @@ export default function DashboardPage() {
                         ))}
                       </div>
                     )}
+                    <ScoreRecommendations details={s.criteria_details} />
                   </div>
                 )
               })}

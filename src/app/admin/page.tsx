@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { ScoreRecommendations } from '@/components/ScoreRecommendations'
 
 interface Submission {
   id: string
@@ -96,7 +97,7 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDetail, setSelectedDetail] = useState<Submission | null>(null)
-  const [detailScores, setDetailScores] = useState<Array<{section: string, score: number, reasoning: string, strengths: string[], weaknesses: string[]}>>([])
+  const [detailScores, setDetailScores] = useState<Array<{section: string, score: number, reasoning: string, strengths: string[], weaknesses: string[], criteria_details: unknown}>>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [showCase, setShowCase] = useState(false)
 
@@ -139,7 +140,7 @@ export default function AdminPage() {
   const openDetail = useCallback(async (sub: Submission) => {
     setSelectedId(sub.id); setSelectedDetail(sub); setDetailLoading(true); setShowCase(false)
     try {
-      const { data } = await supabase.from('scores').select('section, score, reasoning, strengths, weaknesses')
+      const { data } = await supabase.from('scores').select('section, score, reasoning, strengths, weaknesses, criteria_details')
         .eq('submission_id', sub.id).eq('run_number', 1).order('section')
       setDetailScores(data ?? [])
     } catch { setDetailScores([]) }
@@ -361,6 +362,7 @@ export default function AdminPage() {
                     {s.reasoning && <p className="text-xs text-dark leading-relaxed mb-2">{s.reasoning}</p>}
                     {(s.strengths as string[])?.length > 0 && <div className="mb-2">{(s.strengths as string[]).map((str, i) => <p key={i} className="text-xs text-emerald-600 flex items-start gap-1.5"><span className="mt-0.5">✓</span>{str}</p>)}</div>}
                     {(s.weaknesses as string[])?.length > 0 && <div>{(s.weaknesses as string[]).map((w, i) => <p key={i} className="text-xs text-red-500 flex items-start gap-1.5"><span className="mt-0.5">✗</span>{w}</p>)}</div>}
+                    <ScoreRecommendations details={s.criteria_details} />
                   </div>
                 )
               })}

@@ -1,10 +1,17 @@
 export type SectionKey = 'analytics' | 'idea' | 'steps' | 'budget' | 'presentation' | 'cross_validation' | 'task_compliance'
 
+export interface Recommendation {
+  action: string
+  quote: string
+  rewrite: string
+}
+
 export interface ScoreResult {
   score: number
   reasoning: string
   strengths: string[]
   weaknesses: string[]
+  recommendations?: Recommendation[]
   [key: string]: unknown
 }
 
