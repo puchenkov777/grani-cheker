@@ -82,8 +82,8 @@ async function evaluateSection(
   participantText?: string
 ): Promise<ScoreResult> {
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    temperature: 0,
+    model: 'gpt-6-luna',
+    reasoning_effort: 'medium',
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: systemPrompt },
