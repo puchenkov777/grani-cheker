@@ -39,6 +39,7 @@ import {
   type ScoreResult,
 } from '@/lib/scoring'
 import { ACTIONABLE_FEEDBACK_PROMPT, INDEPENDENT_REVIEW_PROMPT, parseScoreResult } from '@/lib/evaluation-feedback'
+import { getAppealGuidance } from '@/lib/knowledge/appeal-patterns'
 
 interface SectionConfig {
   key: SectionKey
@@ -248,7 +249,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const systemPrompt = section.getSystemPrompt() + ACTIONABLE_FEEDBACK_PROMPT
+        const systemPrompt = section.getSystemPrompt() + getAppealGuidance(section.key) + ACTIONABLE_FEEDBACK_PROMPT
         const userPrompt = caseContext + section.getUserPrompt(text)
 
         // Run 1
@@ -300,7 +301,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (presText) {
-        const systemPrompt = presentationSystem() + ACTIONABLE_FEEDBACK_PROMPT
+        const systemPrompt = presentationSystem() + getAppealGuidance('presentation') + ACTIONABLE_FEEDBACK_PROMPT
         const userPrompt = caseContext + presentationUser({
           text: presText,
           slideCount: presentationSlideCount,
@@ -348,7 +349,7 @@ export async function POST(request: NextRequest) {
 
     // Cross-validation: проверка связности между разделами
     try {
-      const crossSystemPrompt = crossValidationSystem()
+      const crossSystemPrompt = crossValidationSystem() + getAppealGuidance('cross_validation')
       const crossUserPrompt = crossValidationUser({
         analytics: submission.section_analytics || '',
         idea: submission.section_idea || '',
