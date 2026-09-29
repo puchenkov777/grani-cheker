@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -801,12 +800,18 @@ function SubmitPage() {
       const uploadAttachment = async (file: File, prefix: string) => {
         const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
         const pathname = `uploads/${crypto.randomUUID()}_${prefix}.${ext}`;
-        const result = await upload(pathname, file, {
-          access: 'private',
-          handleUploadUrl: '/api/blob-upload',
-          contentType: file.type || 'application/octet-stream',
+        const contentType = file.type || 'application/octet-stream';
+        const tokenResponse = await fetch('/api/blob-upload', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pathname, contentType, size: file.size }),
         });
-        return result.pathname;
+        if (!tokenResponse.ok) throw new Error('Не удалось подготовить загрузку вложения');
+        const { presignedUrl } = await tokenResponse.json();
+        const uploadResponse = await fetch(presignedUrl, {
+          method: 'PUT', headers: { 'Content-Type': contentType }, body: file,
+        });
+        if (!uploadResponse.ok) throw new Error('Не удалось загрузить вложение');
+        return pathname;
       };
       if (pptxFile) formData.append("pptx_file_path", await uploadAttachment(pptxFile, 'presentation'));
       if (pptxComment.trim()) formData.append("pptx_comment", pptxComment.trim());
