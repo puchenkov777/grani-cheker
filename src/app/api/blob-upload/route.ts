@@ -1,5 +1,7 @@
-import { issueSignedToken, presignUrl } from '@vercel/blob'
+import { del, issueSignedToken, presignUrl } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { getMentorSession } from '@/lib/mentor-session'
 
 const pathPattern = /^uploads\/[0-9a-f-]{36}_(presentation|idea_attachment|steps_attachment)\.(pptx|pdf|docx|doc|jpg|jpeg|png|webp)$/i
 const allowedContentTypes = new Set([
@@ -34,4 +36,19 @@ export async function POST(request: NextRequest) {
     console.error('Blob presign failed:', error)
     return NextResponse.json({ error: 'Ошибка подготовки загрузки' }, { status: 500 })
   }
+}
+
+// Administrators can remove uploads that were never attached to a submission.
+export async function DELETE(request: NextRequest) {
+  const session = getMentorSession(request)
+  if (session?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const pathname = request.nextUrl.searchParams.get('path') || ''
+  if (!pathPattern.test(pathname)) return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
+  for (const column of ['pptx_file_path', 'idea_attachment_path', 'steps_attachment_path'] as const) {
+    const { data, error } = await db.from('submissions').select('id').eq(column, pathname)
+    if (error) return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    if (data?.length) return NextResponse.json({ error: 'File is attached to a submission' }, { status: 409 })
+  }
+  await del(pathname)
+  return NextResponse.json({ deleted: true })
 }
