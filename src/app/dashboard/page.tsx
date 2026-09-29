@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { ScoreRecommendations } from '@/components/ScoreRecommendations'
 
 interface Submission {
@@ -195,13 +194,9 @@ export default function DashboardPage() {
 
   const handleDownloadFile = useCallback(async (filePath: string, label: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('submissions')
-        .download(filePath)
-      if (error || !data) {
-        alert('Ошибка скачивания файла')
-        return
-      }
+      const response = await fetch(`/api/files?path=${encodeURIComponent(filePath)}`)
+      if (!response.ok) { alert('Ошибка скачивания файла'); return }
+      const data = await response.blob()
       const ext = filePath.split('.').pop() || 'bin'
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
@@ -219,12 +214,9 @@ export default function DashboardPage() {
     setSelectedDetail(sub)
     setDetailLoading(true)
     try {
-      const { data } = await supabase
-        .from('scores')
-        .select('section, score, reasoning, strengths, weaknesses, criteria_details')
-        .eq('submission_id', sub.id)
-        .eq('run_number', 1)
-        .order('section')
+      const response = await fetch(`/api/scores?submission_id=${encodeURIComponent(sub.id)}`)
+      if (!response.ok) throw new Error('Ошибка загрузки оценок')
+      const { data } = await response.json()
       setDetailScores(data ?? [])
     } catch {
       setDetailScores([])
@@ -434,7 +426,7 @@ export default function DashboardPage() {
           </h1>
         </div>
         <button
-          onClick={() => { localStorage.removeItem('mentor_auth'); router.push('/login'); }}
+          onClick={() => { fetch('/api/mentor/logout', { method: 'POST' }); localStorage.removeItem('mentor_auth'); router.push('/login'); }}
           className="text-xs font-bold text-muted hover:text-orange transition-colors"
         >
           Выйти

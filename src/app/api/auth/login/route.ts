@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const normalizedTelegram = normalizeTelegram(telegram)
     const passwordHash = await hashPassword(password)
 
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await db
       .from('users')
       .select('id, telegram, name, mentor')
       .eq('telegram', normalizedTelegram)

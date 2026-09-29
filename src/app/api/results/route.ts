@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { canAccessMentor, getMentorSession } from '@/lib/mentor-session'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const session = getMentorSession(request)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // Fetch all submissions with participant and total_scores data
-  const { data: submissions, error: subError } = await supabase
+  const { data: submissions, error: subError } = await db
     .from('submissions')
     .select('*, participants(*), total_scores(*)')
     .order('created_at', { ascending: false })
@@ -20,9 +24,9 @@ export async function GET() {
   }
 
   // Fetch all run_number=1 scores for these submissions
-  const submissionIds = submissions.map((s) => s.id)
+  const submissionIds = submissions.map((s: { id: string }) => s.id)
 
-  const { data: scores, error: scoresError } = await supabase
+  const { data: scores, error: scoresError } = await db
     .from('scores')
     .select('*')
     .in('submission_id', submissionIds)
@@ -47,7 +51,9 @@ export async function GET() {
   }
 
   // Build response
-  const data = submissions.map((sub) => ({
+  const data = submissions.filter((sub: Record<string, any>) =>
+    canAccessMentor(session, sub.participants?.mentor ?? null)
+  ).map((sub: Record<string, any>) => ({
     id: sub.id,
     case_title: sub.case_title,
     status: sub.status,

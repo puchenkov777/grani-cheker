@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
 
 // GET — list cases for a user
 export async function GET(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'user_id обязателен' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('cases')
     .select('id, title, task_text, created_at')
     .eq('user_id', userId)
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'user_id, название и текст задания обязательны' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('cases')
       .insert({
         user_id,
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'case_id и user_id обязательны' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('cases')
       .delete()
       .eq('id', case_id)

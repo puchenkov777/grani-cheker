@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
 
 // GET — load draft
 export async function GET(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'user_id обязателен' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('drafts')
     .select('data, updated_at')
     .eq('user_id', userId)
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'user_id обязателен' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('drafts')
       .upsert({
         user_id,

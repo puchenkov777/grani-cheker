@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -797,11 +798,21 @@ function SubmitPage() {
       formData.append("section_steps", JSON.stringify(steps));
       formData.append("section_budget", JSON.stringify(resources));
 
-      if (pptxFile) formData.append("pptx_file", pptxFile);
+      const uploadAttachment = async (file: File, prefix: string) => {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+        const pathname = `uploads/${crypto.randomUUID()}_${prefix}.${ext}`;
+        const result = await upload(pathname, file, {
+          access: 'private',
+          handleUploadUrl: '/api/blob-upload',
+          contentType: file.type || 'application/octet-stream',
+        });
+        return result.pathname;
+      };
+      if (pptxFile) formData.append("pptx_file_path", await uploadAttachment(pptxFile, 'presentation'));
       if (pptxComment.trim()) formData.append("pptx_comment", pptxComment.trim());
-      if (ideaFile) formData.append("idea_attachment", ideaFile);
+      if (ideaFile) formData.append("idea_attachment_path", await uploadAttachment(ideaFile, 'idea_attachment'));
       if (ideaFileDesc.trim()) formData.append("idea_file_description", ideaFileDesc.trim());
-      if (stepsFile) formData.append("steps_attachment", stepsFile);
+      if (stepsFile) formData.append("steps_attachment_path", await uploadAttachment(stepsFile, 'steps_attachment'));
       if (stepsFileDesc.trim()) formData.append("steps_file_description", stepsFileDesc.trim());
 
       let res: Response;

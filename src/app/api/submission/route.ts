@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
 
 // GET — fetch submission data for editing
 export async function GET(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'id и user_id обязательны' }, { status: 400 })
   }
 
-  const { data: submission, error } = await supabase
+  const { data: submission, error } = await db
     .from('submissions')
     .select('*, participants(name, mentor)')
     .eq('id', submissionId)

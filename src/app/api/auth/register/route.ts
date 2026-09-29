@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const normalizedTelegram = normalizeTelegram(telegram)
 
     // Check if user already exists
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('users')
       .select('id')
       .eq('telegram', normalizedTelegram)
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hashPassword(password)
 
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await db
       .from('users')
       .insert({
         telegram: normalizedTelegram,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create empty draft
-    await supabase.from('drafts').insert({ user_id: user.id, data: {} })
+    await db.from('drafts').insert({ user_id: user.id, data: {} })
 
     return NextResponse.json({ success: true, user })
   } catch (error) {

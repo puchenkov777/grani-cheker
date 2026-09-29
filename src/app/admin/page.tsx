@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { ScoreRecommendations } from '@/components/ScoreRecommendations'
 
 interface Submission {
@@ -128,8 +127,9 @@ export default function AdminPage() {
 
   const handleDownloadFile = useCallback(async (filePath: string, label: string) => {
     try {
-      const { data, error } = await supabase.storage.from('submissions').download(filePath)
-      if (error || !data) { alert('Ошибка скачивания'); return }
+      const response = await fetch(`/api/files?path=${encodeURIComponent(filePath)}`)
+      if (!response.ok) { alert('Ошибка скачивания'); return }
+      const data = await response.blob()
       const ext = filePath.split('.').pop() || 'bin'
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
@@ -140,8 +140,9 @@ export default function AdminPage() {
   const openDetail = useCallback(async (sub: Submission) => {
     setSelectedId(sub.id); setSelectedDetail(sub); setDetailLoading(true); setShowCase(false)
     try {
-      const { data } = await supabase.from('scores').select('section, score, reasoning, strengths, weaknesses, criteria_details')
-        .eq('submission_id', sub.id).eq('run_number', 1).order('section')
+      const response = await fetch(`/api/scores?submission_id=${encodeURIComponent(sub.id)}`)
+      if (!response.ok) throw new Error('Ошибка загрузки оценок')
+      const { data } = await response.json()
       setDetailScores(data ?? [])
     } catch { setDetailScores([]) }
     finally { setDetailLoading(false) }
@@ -220,7 +221,7 @@ export default function AdminPage() {
             Все <span className="text-orange">работы</span>
           </h1>
         </div>
-        <button onClick={() => { localStorage.removeItem('mentor_auth'); router.push('/login') }} className="text-xs font-bold text-muted hover:text-orange transition-colors">Выйти</button>
+        <button onClick={() => { fetch('/api/mentor/logout', { method: 'POST' }); localStorage.removeItem('mentor_auth'); router.push('/login') }} className="text-xs font-bold text-muted hover:text-orange transition-colors">Выйти</button>
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">

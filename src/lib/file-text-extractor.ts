@@ -5,13 +5,16 @@ import type OpenAI from 'openai'
  * Extract text from PDF (basic — extracts visible text streams).
  */
 export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<string> {
+  let parser: import('pdf-parse').PDFParse | undefined
   try {
-    // @ts-expect-error pdf-parse has no type declarations
-    const pdfParse = (await import('pdf-parse')).default
-    const result = await pdfParse(Buffer.from(buffer))
+    const { PDFParse } = await import('pdf-parse')
+    parser = new PDFParse({ data: Buffer.from(buffer) })
+    const result = await parser.getText()
     return result.text || ''
   } catch {
     return ''
+  } finally {
+    await parser?.destroy()
   }
 }
 
@@ -91,8 +94,14 @@ export async function extractTextFromFile(
     case 'pdf':
       return extractTextFromPdf(buffer)
     case 'docx':
-    case 'doc':
       return extractTextFromDocx(buffer)
+    case 'doc': {
+      try {
+        const WordExtractor = (await import('word-extractor')).default
+        const document = await new WordExtractor().extract(Buffer.from(buffer))
+        return document.getBody()
+      } catch { return '' }
+    }
     case 'jpg':
     case 'jpeg':
     case 'png':

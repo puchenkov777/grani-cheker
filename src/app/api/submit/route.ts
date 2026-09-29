@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { after, NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { checkToken } from '@/lib/mentor-session'
 
-let fileCounter = 0
+export const maxDuration = 300
 
 async function uploadFile(
   participantId: string,
@@ -10,14 +11,14 @@ async function uploadFile(
 ): Promise<string | null> {
   if (!file || file.size === 0) return null
 
-  fileCounter++
+  const fileCounter = crypto.randomUUID()
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
   const safeName = `${participantId}/${fileCounter}_${prefix}.${ext}`
 
-  // Create a new File/Blob with ASCII-safe name to avoid Supabase issues with cyrillic filenames
+  // Store with an ASCII pathname to support Cyrillic original filenames.
   const safeFile = new File([file], `${fileCounter}_${prefix}.${ext}`, { type: file.type })
 
-  const { error } = await supabase.storage
+  const { error } = await db.storage
     .from('submissions')
     .upload(safeName, safeFile, {
       contentType: file.type,
@@ -33,7 +34,6 @@ async function uploadFile(
 }
 
 export async function POST(request: NextRequest) {
-  fileCounter = 0 // reset per request
   try {
     const formData = await request.formData()
 
@@ -47,6 +47,13 @@ export async function POST(request: NextRequest) {
     const pptxFile = formData.get('pptx_file') as File | null
     const ideaAttachment = formData.get('idea_attachment') as File | null
     const stepsAttachment = formData.get('steps_attachment') as File | null
+    const directPath = (key: string) => {
+      const path = formData.get(key)?.toString() || null
+      if (path && !/^uploads\/[0-9a-f-]{36}_(presentation|idea_attachment|steps_attachment)\.(pptx|pdf|docx|doc|jpg|jpeg|png|webp)$/i.test(path)) {
+        throw new Error('Недопустимый путь вложения')
+      }
+      return path
+    }
     const ideaFileDescription = formData.get('idea_file_description') as string | null
     const stepsFileDescription = formData.get('steps_file_description') as string | null
     const pptxComment = formData.get('pptx_comment') as string | null
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create participant (use name as unique key, no email)
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await db
       .from('participants')
       .insert({ name, mentor: mentor || null, user_id: userIdRaw || null })
       .select('id')
@@ -77,12 +84,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload files
-    const pptxFilePath = pptxFile ? await uploadFile(participant.id, pptxFile, 'presentation') : null
-    const ideaFilePath = ideaAttachment ? await uploadFile(participant.id, ideaAttachment, 'idea_attachment') : null
-    const stepsFilePath = stepsAttachment ? await uploadFile(participant.id, stepsAttachment, 'steps_attachment') : null
+    const pptxFilePath = directPath('pptx_file_path') || (pptxFile ? await uploadFile(participant.id, pptxFile, 'presentation') : null)
+    const ideaFilePath = directPath('idea_attachment_path') || (ideaAttachment ? await uploadFile(participant.id, ideaAttachment, 'idea_attachment') : null)
+    const stepsFilePath = directPath('steps_attachment_path') || (stepsAttachment ? await uploadFile(participant.id, stepsAttachment, 'steps_attachment') : null)
 
     // Create submission
-    const { data: submission, error: submissionError } = await supabase
+    const { data: submission, error: submissionError } = await db
       .from('submissions')
       .insert({
         participant_id: participant.id,
@@ -114,11 +121,13 @@ export async function POST(request: NextRequest) {
 
     // Trigger async check (fire and forget)
     const baseUrl = request.nextUrl.origin
-    fetch(`${baseUrl}/api/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ submission_id: submission.id }),
-    }).catch(console.error)
+    after(async () => {
+      await fetch(`${baseUrl}/api/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-check-token': checkToken(submission.id) },
+        body: JSON.stringify({ submission_id: submission.id }),
+      })
+    })
 
     return NextResponse.json({
       success: true,
@@ -136,7 +145,6 @@ export async function POST(request: NextRequest) {
 
 // PUT — update existing submission and re-check
 export async function PUT(request: NextRequest) {
-  fileCounter = 0
   try {
     const formData = await request.formData()
 
@@ -150,6 +158,13 @@ export async function PUT(request: NextRequest) {
     const pptxFile = formData.get('pptx_file') as File | null
     const ideaAttachment = formData.get('idea_attachment') as File | null
     const stepsAttachment = formData.get('steps_attachment') as File | null
+    const directPath = (key: string) => {
+      const path = formData.get(key)?.toString() || undefined
+      if (path && !/^uploads\/[0-9a-f-]{36}_(presentation|idea_attachment|steps_attachment)\.(pptx|pdf|docx|doc|jpg|jpeg|png|webp)$/i.test(path)) {
+        throw new Error('Недопустимый путь вложения')
+      }
+      return path
+    }
     const pptxComment = formData.get('pptx_comment') as string | null
     const caseIdRaw = formData.get('case_id') as string | null
 
@@ -158,7 +173,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('submissions')
       .select('id, participant_id')
       .eq('id', submissionId)
@@ -170,9 +185,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Upload new files (only if provided)
-    const pptxFilePath = pptxFile && pptxFile.size > 0 ? await uploadFile(existing.participant_id, pptxFile, 'presentation') : undefined
-    const ideaFilePath = ideaAttachment && ideaAttachment.size > 0 ? await uploadFile(existing.participant_id, ideaAttachment, 'idea_attachment') : undefined
-    const stepsFilePath = stepsAttachment && stepsAttachment.size > 0 ? await uploadFile(existing.participant_id, stepsAttachment, 'steps_attachment') : undefined
+    const pptxFilePath = directPath('pptx_file_path') || (pptxFile && pptxFile.size > 0 ? await uploadFile(existing.participant_id, pptxFile, 'presentation') : undefined)
+    const ideaFilePath = directPath('idea_attachment_path') || (ideaAttachment && ideaAttachment.size > 0 ? await uploadFile(existing.participant_id, ideaAttachment, 'idea_attachment') : undefined)
+    const stepsFilePath = directPath('steps_attachment_path') || (stepsAttachment && stepsAttachment.size > 0 ? await uploadFile(existing.participant_id, stepsAttachment, 'steps_attachment') : undefined)
 
     // Build update object (only include file paths if new files were uploaded)
     const updateData: Record<string, unknown> = {
@@ -189,7 +204,7 @@ export async function PUT(request: NextRequest) {
     if (ideaFilePath) updateData.idea_attachment_path = ideaFilePath
     if (stepsFilePath) updateData.steps_attachment_path = stepsFilePath
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('submissions')
       .update(updateData)
       .eq('id', submissionId)
@@ -199,16 +214,18 @@ export async function PUT(request: NextRequest) {
     }
 
     // Delete old scores and total_scores
-    await supabase.from('scores').delete().eq('submission_id', submissionId)
-    await supabase.from('total_scores').delete().eq('submission_id', submissionId)
+    await db.from('scores').delete().eq('submission_id', submissionId)
+    await db.from('total_scores').delete().eq('submission_id', submissionId)
 
     // Trigger re-check
     const baseUrl = request.nextUrl.origin
-    fetch(`${baseUrl}/api/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ submission_id: submissionId }),
-    }).catch(console.error)
+    after(async () => {
+      await fetch(`${baseUrl}/api/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-check-token': checkToken(submissionId) },
+        body: JSON.stringify({ submission_id: submissionId }),
+      })
+    })
 
     return NextResponse.json({ success: true, submission_id: submissionId })
   } catch (error) {

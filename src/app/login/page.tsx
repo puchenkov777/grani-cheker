@@ -3,27 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const USERS: Record<string, { password: string; role: 'mentor' | 'admin'; displayName: string }> = {
-  victor: { password: "Gr4n1_V1ct0r!2026", role: "mentor", displayName: "Виктор" },
-  vlad: { password: "Gr4n1_Vl4d!2026", role: "mentor", displayName: "Влад" },
-  admin: { password: "Grani2026Admin!", role: "admin", displayName: "Администратор" },
-};
-
 export default function LoginPage() {
   const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    const key = login.toLowerCase().trim();
-    const user = USERS[key];
-    if (user && user.password === password) {
+    try {
+      const response = await fetch('/api/mentor/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login, password }),
+      });
+      if (!response.ok) throw new Error('Неверный логин или пароль');
+      const user = await response.json();
       localStorage.setItem("mentor_auth", JSON.stringify({
-        name: key,
+        name: user.name,
         role: user.role,
         displayName: user.displayName,
         ts: Date.now(),
@@ -33,8 +31,8 @@ export default function LoginPage() {
       } else {
         router.push("/dashboard");
       }
-    } else {
-      setError("Неверный логин или пароль");
+    } catch {
+      setError('Неверный логин или пароль');
     }
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { openai } from '@/lib/openai'
+import { db } from '@/lib/db'
+import { verifyCheckToken } from '@/lib/mentor-session'
+import { getOpenAI } from '@/lib/openai'
 import { parsePptx } from '@/lib/pptx-parser'
 import { extractTextFromFile } from '@/lib/file-text-extractor'
 import {
@@ -40,6 +41,8 @@ import {
 } from '@/lib/scoring'
 import { ACTIONABLE_FEEDBACK_PROMPT, INDEPENDENT_REVIEW_PROMPT, parseScoreResult } from '@/lib/evaluation-feedback'
 import { getAppealGuidance } from '@/lib/knowledge/appeal-patterns'
+
+export const maxDuration = 300
 
 interface SectionConfig {
   key: SectionKey
@@ -81,7 +84,7 @@ async function evaluateSection(
   validScores: number[] = VALID_SCORES,
   participantText?: string
 ): Promise<ScoreResult> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: 'gpt-6-luna',
     reasoning_effort: 'medium',
     response_format: { type: 'json_object' },
@@ -112,15 +115,18 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    if (!verifyCheckToken(submissionId, request.headers.get('x-check-token'))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     // Update status to 'checking'
-    await supabase
+    await db
       .from('submissions')
       .update({ status: 'checking' })
       .eq('id', submissionId)
 
     // Fetch submission data
-    const { data: submission, error: fetchError } = await supabase
+    const { data: submission, error: fetchError } = await db
       .from('submissions')
       .select('*')
       .eq('id', submissionId)
@@ -134,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     let caseTaskText = ''
     if (submission.case_id) {
-      const { data: caseData, error: caseError } = await supabase
+      const { data: caseData, error: caseError } = await db
         .from('cases')
         .select('task_text')
         .eq('id', submission.case_id)
@@ -152,7 +158,7 @@ export async function POST(request: NextRequest) {
 
     if (submission.pptx_file_path) {
       try {
-        const { data: fileData, error: downloadError } = await supabase.storage
+        const { data: fileData, error: downloadError } = await db.storage
           .from('submissions')
           .download(submission.pptx_file_path)
 
@@ -161,14 +167,17 @@ export async function POST(request: NextRequest) {
         }
 
         const buffer = await fileData.arrayBuffer()
-        const pptxData = await parsePptx(buffer)
+        const isPptx = submission.pptx_file_path.toLowerCase().endsWith('.pptx')
+        const pptxData = isPptx
+          ? await parsePptx(buffer)
+          : { text: await extractTextFromFile(buffer, submission.pptx_file_path, getOpenAI()), slideCount: 0, hasImages: false }
 
         presentationText = pptxData.text
         presentationSlideCount = pptxData.slideCount
         presentationHasImages = pptxData.hasImages
 
         // Save parsed text back to submission
-        await supabase
+        await db
           .from('submissions')
           .update({
             pptx_parsed_text: pptxData.text,
@@ -191,12 +200,12 @@ export async function POST(request: NextRequest) {
 
     if (submission.idea_attachment_path) {
       try {
-        const { data: fileData } = await supabase.storage
+        const { data: fileData } = await db.storage
           .from('submissions')
           .download(submission.idea_attachment_path)
         if (fileData) {
           const buf = await fileData.arrayBuffer()
-          ideaAttachmentText = await extractTextFromFile(buf, submission.idea_attachment_path, openai)
+          ideaAttachmentText = await extractTextFromFile(buf, submission.idea_attachment_path, getOpenAI())
         }
       } catch (e) {
         console.error('Failed to extract idea attachment text:', e)
@@ -205,12 +214,12 @@ export async function POST(request: NextRequest) {
 
     if (submission.steps_attachment_path) {
       try {
-        const { data: fileData } = await supabase.storage
+        const { data: fileData } = await db.storage
           .from('submissions')
           .download(submission.steps_attachment_path)
         if (fileData) {
           const buf = await fileData.arrayBuffer()
-          stepsAttachmentText = await extractTextFromFile(buf, submission.steps_attachment_path, openai)
+          stepsAttachmentText = await extractTextFromFile(buf, submission.steps_attachment_path, getOpenAI())
         }
       } catch (e) {
         console.error('Failed to extract steps attachment text:', e)
@@ -256,7 +265,7 @@ export async function POST(request: NextRequest) {
         const result1 = await evaluateSection(systemPrompt, userPrompt, VALID_SCORES, text)
         run1Scores[section.key] = result1.score
 
-        await supabase.from('scores').insert({
+        await db.from('scores').insert({
           submission_id: submissionId,
           section: section.key,
           run_number: 1,
@@ -274,7 +283,7 @@ export async function POST(request: NextRequest) {
           needsReview = true
         }
 
-        await supabase.from('scores').insert({
+        await db.from('scores').insert({
           submission_id: submissionId,
           section: section.key,
           run_number: 2,
@@ -312,7 +321,7 @@ export async function POST(request: NextRequest) {
         const result1 = await evaluateSection(systemPrompt, userPrompt, VALID_SCORES, presText)
         run1Scores.presentation = result1.score
 
-        await supabase.from('scores').insert({
+        await db.from('scores').insert({
           submission_id: submissionId,
           section: 'presentation',
           run_number: 1,
@@ -330,7 +339,7 @@ export async function POST(request: NextRequest) {
           needsReview = true
         }
 
-        await supabase.from('scores').insert({
+        await db.from('scores').insert({
           submission_id: submissionId,
           section: 'presentation',
           run_number: 2,
@@ -361,7 +370,7 @@ export async function POST(request: NextRequest) {
       const crossResult1 = await evaluateSection(crossSystemPrompt, crossUserPrompt, VALID_CROSS_SCORES)
       run1Scores.cross_validation = crossResult1.score
 
-      await supabase.from('scores').insert({
+      await db.from('scores').insert({
         submission_id: submissionId,
         section: 'cross_validation',
         run_number: 1,
@@ -378,7 +387,7 @@ export async function POST(request: NextRequest) {
         needsReview = true
       }
 
-      await supabase.from('scores').insert({
+      await db.from('scores').insert({
         submission_id: submissionId,
         section: 'cross_validation',
         run_number: 2,
@@ -410,7 +419,7 @@ export async function POST(request: NextRequest) {
           const tcResult1 = await evaluateSection(tcSystemPrompt, tcUserPrompt, VALID_CROSS_SCORES)
           run1Scores.task_compliance = tcResult1.score
 
-          await supabase.from('scores').insert({
+          await db.from('scores').insert({
             submission_id: submissionId,
             section: 'task_compliance',
             run_number: 1,
@@ -427,7 +436,7 @@ export async function POST(request: NextRequest) {
             needsReview = true
           }
 
-          await supabase.from('scores').insert({
+          await db.from('scores').insert({
             submission_id: submissionId,
             section: 'task_compliance',
             run_number: 2,
@@ -447,7 +456,7 @@ export async function POST(request: NextRequest) {
 
     // If everything failed, mark as error
     if (successCount === 0) {
-      await supabase
+      await db
         .from('submissions')
         .update({ status: 'error' })
         .eq('id', submissionId)
@@ -464,7 +473,7 @@ export async function POST(request: NextRequest) {
     const grade = calculateGrade(totalScore)
 
     // Save to total_scores
-    await supabase.from('total_scores').insert({
+    await db.from('total_scores').insert({
       submission_id: submissionId,
       total: totalScore,
       grade,
@@ -473,7 +482,7 @@ export async function POST(request: NextRequest) {
 
     // Update submission status
     const finalStatus = needsReview ? 'review' : 'done'
-    await supabase
+    await db
       .from('submissions')
       .update({ status: finalStatus })
       .eq('id', submissionId)
@@ -490,7 +499,7 @@ export async function POST(request: NextRequest) {
 
     if (submissionId) {
       try {
-        await supabase
+        await db
           .from('submissions')
           .update({ status: 'error' })
           .eq('id', submissionId)

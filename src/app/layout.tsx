@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -24,7 +25,7 @@ export default function RootLayout({
         {/* Header */}
         <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-orange/15">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2 sm:gap-3">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3">
               <img
                 src="https://cdn.phototourl.com/free/2026-04-08-4279d01f-744c-4cba-97a9-06b8783ef05f.png"
                 alt="Грани"
@@ -34,7 +35,7 @@ export default function RootLayout({
                 <div className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">Грани Чекер</div>
                 <div className="text-[9px] sm:text-[10px] text-muted tracking-wider">Проверка кейсов</div>
               </div>
-            </a>
+            </Link>
             <nav className="flex items-center gap-3 sm:gap-6">
               <a href="/submit" className="hidden sm:block text-xs font-semibold tracking-wide hover:text-orange transition-colors">
                 Сдать работу

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get('user_id')
@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'user_id обязателен' }, { status: 400 })
   }
 
-  const { data: user, error } = await supabase
+  const { data: user, error } = await db
     .from('users')
     .select('id, telegram, name, mentor, created_at')
     .eq('id', userId)
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get user submissions
-  const { data: submissions } = await supabase
+  const { data: submissions } = await db
     .from('submissions')
     .select('id, case_title, status, created_at, total_scores(total, grade)')
     .eq('user_id', userId)
